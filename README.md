@@ -1,5 +1,10 @@
 # 722
 
+## MD5 check ##
+````
+md5sum - c md5.txt 
+````
+
 ## Trimmomatic ##
 
 ````
@@ -381,4 +386,90 @@ pdf(paste(title, ".pdf", sep=""))
 hist(dat$depth, xlim=c(0,500), breaks=500)
 dev.off()
 ````
+
+## Adding in read groups ##
+
+````
+#! /bin/bash
+
+#Variable for project:
+project_dir=/2/scratch/TylerA/SSD/bwamap/dedup
+
+#Path to Picard
+picdir=/usr/local/picard-tools/picard.jar
+
+
+files=(${project_dir}/*.bam)
+for file in ${files[@]}
+do
+name=${file}
+base=`basename ${name} .bam`
+
+java -jar ${picdir} AddOrReplaceReadGroups I=${project_dir}/${base}.bam \
+  O=${project_dir}/${base}_RG.bam \
+  RGID=1_2 \
+  RGLB=library1 \
+  RGPL=illumina \
+  RGPU=None \
+  RGSM=${base}
+
+done
+````
+
+## Index for GATK ##
+
+````
+#! /bin/bash 
+
+# Index files
+
+#Variable to put indexed files in 
+index_dir=/2/scratch/TylerA/SSD/bwamap/gatk/index
+
+#Path to input directory
+input=/2/scratch/TylerA/SSD/bwamap/dedup
+
+files=(${input}/*_rmd_RG.bam)
+for file in ${files[@]}
+do
+name=${file}
+base=`basename ${name} _rmd_RG.bam`
+
+samtools index ${input}/${base}_rmd_RG.bam 
+
+done
+````
+
+## Mark Indels ##
+
+````
+#! /bin/bash 
+#Path to input directory
+final_bam=/2/scratch/TylerA/SSD/bwamap/dedup
+
+#Path to output directory
+gatk_dir=/2/scratch/TylerA/SSD/bwamap/gatk
+
+#Variable for reference genome (non-zipped)
+#index_dir=/home/sarahm/cvl/index_dir
+ref_genome=/2/scratch/TylerA/Dmelgenome/gatk/dmel-all-chromosome-r6.23.fa
+
+#Path to GATK
+gatk=/usr/local/gatk/GenomeAnalysisTK.jar
+
+
+files=(${final_bam}/*_rmd_RG.bam)
+for file in ${files[@]}
+do
+name=${file}
+base=`basename ${name} _rmd_RG.bam`
+
+java -Xmx32g -jar ${gatk} -I ${final_bam}/${base}_rmd_RG.bam \
+-R ${ref_genome} \
+  -T RealignerTargetCreator \
+  -o ${gatk_dir}/${base}.intervals
+
+done
+````
+
 
