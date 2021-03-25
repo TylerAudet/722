@@ -2,7 +2,7 @@
 
 ## MD5 check ##
 ````
-md5sum - c md5.txt 
+md5sum -c readSets.md5
 ````
 
 ## Trimmomatic ##
