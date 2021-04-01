@@ -285,6 +285,8 @@ For this to run I create a run1/ and run2/ directory and sort my reads in to the
 
 ### Quality filter ###
 
+Next I need to filter for quality because accuracy is very important for SNP calling, as low quaslity can result in false positives. To do this I can use `samtools view` to filter out reads below a certain quality score. I Did this code twice, one with a conservative quality of 20, and again with a more stringent quality of 30. I compared the coverage between the two and found that a more stringent quality score removed more reads without impacting the coverage, so I decided to go with a quality filter of 30.
+
 ````
 #for all files
 
@@ -311,7 +313,9 @@ done
 #-@ 16 indicates threads being used
 ````
 
-## Calculate coverage ##
+### Calculate coverage ###
+
+Next I calculate the coverage of the samples after filtering for each quality threshold using `samtools depth`.
 
 ````
 #!/bin/bash
@@ -328,7 +332,7 @@ samtools depth ${in_dir}/${base}.bam > ${in_dir}/${base}.coverage
 done
 ````
 
-## Call histogram ##
+The output .coverage file can be visualized with a histogram using the scripts below.
 
 ````
 #!/bin/bash
@@ -345,7 +349,6 @@ Rscript /2/scratch/TylerA/SSD/scripts/depth_histogram.R ${in_dir}/${base}.covera
 done 
 ````
 
-### Rscript for the histogram ###
 
 ````
 ##coverage_histogram.R
@@ -363,7 +366,18 @@ pdf(paste(title, ".pdf", sep=""))
 hist(dat$depth, xlim=c(0,500), breaks=500)
 dev.off()
 ````
-## Deduplicating the bam files ##
+### Quality threshold of 20 ###
+C1F_20.pdf![image](https://user-images.githubusercontent.com/77504755/113307003-abeaa080-92d2-11eb-9f77-48da9dea49b7.png)
+
+### Quality thresholf of 30 ###
+
+C1F_30.pdf![image](https://user-images.githubusercontent.com/77504755/113307082-c1f86100-92d2-11eb-9aca-cd725e8ecf2f.png)
+
+Coverage was not noticeably reduced by a more stringent filter, so in the interest of calling the fewest false SNPs as possible I filter all samples for quality 30. We expected around 200x coverage using the formula coverage = # of reads * length of reads / length of the genome. My coverage histogram shows coverage over 200x though, which means there could be duplicated reads from PCR optical duplication.
+
+### Deduplicating the bam files ###
+
+Because there seem to be erroneous duplication, next I need to remove these optical duplicates. This is done most commonly with Picard. I used the following script:
 
 ````
 #! /bin/bash
@@ -389,7 +403,15 @@ REMOVE_DUPLICATES=true
 done
 ````
 
-## Adding in read groups ##
+Afterwards my coverage looks like this:
+
+***S2F.pdf![image](https://user-images.githubusercontent.com/77504755/113308302-07695e00-92d4-11eb-838f-c6b4c95d68d4.png)
+
+There still appears to be reads over 200x, but fewer. This step also reduced coverage by quite a bit, with far ewer reads close to the 200x mark.
+
+### Adding in read groups ###
+
+My next step is to realign around indels. To do this I need read-groups added to my bam files. These can be added using Picard.
 
 ````
 #! /bin/bash
@@ -420,6 +442,8 @@ done
 
 ## Index for GATK ##
 
+Indel realignment is done using GATK. This is a three step process. With the first script I index all files for GATK so they can be read properly. In the next script, indels are identified and marked. And finally in the third script, the indels are filtered out.
+
 ````
 #! /bin/bash 
 
@@ -441,8 +465,11 @@ samtools index ${input}/${base}_rmd_RG.bam
 
 done
 ````
+The reference also needs to be indexed for the next steps.
 
-## Mark Indels ##
+````
+samtools faidx dmel-all-chromosome-r6.23.fasta.gz
+````
 
 ````
 #! /bin/bash 
@@ -473,5 +500,90 @@ java -Xmx32g -jar ${gatk} -I ${final_bam}/${base}_rmd_RG.bam \
 
 done
 ````
+
+````
+#! /bin/bash 
+#Path to input directory
+final_bam=/2/scratch/TylerA/SSD/bwamap/dedup
+
+#Path to output directory
+gatk_dir=/2/scratch/TylerA/SSD/bwamap/gatk
+
+#Variable for reference genome (non-zipped)
+ref_genome=/2/scratch/TylerA/Dmelgenome/gatk/dmel-all-chromosome-r6.23.fasta
+
+
+#Path to GATK
+gatk=/usr/local/gatk/GenomeAnalysisTK.jar
+
+
+files=(${final_bam}/*_rmd_RG.bam)
+for file in ${files[@]}
+do
+name=${file}
+base=`basename ${name} _rmd_RG.bam`
+
+java -Xmx32g -jar ${gatk} -I ${final_bam}/${base}_rmd_RG.bam -R ${ref_genome} \
+  -T IndelRealigner -targetIntervals ${gatk_dir}/${base}.intervals \
+  -o ${gatk_dir}/${base}_realigned.bam
+
+done
+````
+
+### pileups and mpileups ###
+
+A single mpileup will be needed with my sample information for SNP calling and population statistics, and a pileup file will be needed for each sample for the pi statistic calculation. I can create mpileups using `samtools mpileup`. First I can make a pileup for each sample by running the following script. I've already filtered for quality multipe times, so I have disabled the quality filtering because it is redundant.
+
+````
+#! /bin/bash
+
+mapped_dir=/2/scratch/TylerA/SSD/bwamap/gatk
+picdir=/usr/local/picard-tools/picard.jar
+genome=/2/scratch/TylerA/Dmelgenome/gatk/dmel-all-chromosome-r6.23.fa
+out_dir=/2/scratch/TylerA/SSD/bwamap/pile
+
+files=(${mapped_dir}/*_realigned.bam)
+for file in ${files[@]}
+do
+name=${file}
+base=`basename ${name} _realigned.bam`
+samtools mpileup -B -Q 0 -f ${genome} ${mapped_dir}/${base}_realigned.bam \
+> ${out_dir}/${base}.pileup
+done
+
+#-B: disables base alignment quality calculations to speed up the process
+#-Q 0: Disables base quality filtering
+#-f: tells samtools that the files are indexed as fasta files
+````
+
+I next create my mpileup for all my samples:
+
+````
+samtools mpileup -B -Q 20 -f \
+/2/scratch/TylerA/Dmelgenome/gatk/dmel-all-chromosome-r6.23.fa \
+/2/scratch/TylerA/SSD/bwamap/gatk/*_realigned.bam \
+> samples.mpileup
+````
+
+And I also create sync files for population statistic calculations:
+
+````
+java -ea -jar /usr/local/popoolation/mpileup2sync.jar --input samples.mpileup --output samples.sync
+````
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
