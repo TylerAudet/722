@@ -1,11 +1,20 @@
 # 722
 
-## MD5 check ##
+### MD5 check ###
+
+My samples were downloaded from the Genome Quebec website using curl on to the McMaster cluster. To ensure they were uploaded without issue I run an MD5 check using the command below. All files print out that they are downloaded 'OK', so I can continue.
+
 ````
 md5sum -c readSets.md5
 ````
 
-## Trimmomatic ##
+### Quality check ###
+
+To check te quality of my samples I run `fastqc *.fastq` on them. This will report the number of reads, the proportion of duplication, adapter contamination, and repetetive sequences. I can then run `multiqc .` to compile all the outputs of fastqc to a single summary sheet. The output looks like this:
+
+Screen Shot 2021-04-01 at 8.56.08 AM![image](https://user-images.githubusercontent.com/77504755/113297298-6fb24280-92c8-11eb-94b2-df4574fb5dfe.png)
+
+### Trimmomatic ###
 
 ````
 #!/bin/bash
