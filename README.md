@@ -14,12 +14,16 @@ To check te quality of my samples I run `fastqc *.fastq` on them. This will repo
 
 Screen Shot 2021-04-01 at 8.56.08 AM![image](https://user-images.githubusercontent.com/77504755/113297298-6fb24280-92c8-11eb-94b2-df4574fb5dfe.png)
 
+As expected there is substantial adapter contamination:
+
+Screen Shot 2021-04-01 at 8.59.53 AM![image](https://user-images.githubusercontent.com/77504755/113297492-af792a00-92c8-11eb-93e6-3b6d01d3777a.png)
+
 ### Trimmomatic ###
+
+To remove this adapter contamination I use Trimmomatic with the following code:
 
 ````
 #!/bin/bash
-# Project directory variable:
-# project_dir=/home/katie/dachsProject/WingShapeBSA/20141205_A_DNASeq_PE
 
 # make variable for trimmomatic program location
 trim=/usr/local/trimmomatic/trimmomatic-0.36.jar
@@ -50,66 +54,28 @@ java -jar ${trim} PE -threads 16 -phred33 \
   ${trim_dir}/${base}_R1_SE.fastq.gz \
   ${trim_dir}/${base}_R2_PE.fastq.gz \
   ${trim_dir}/${base}_R2_SE.fastq.gz \
-  ILLUMINACLIP:${adapter}:2:30:10:2 \
-  LEADING:5 \
-  TRAILING:5 \
-  MAXINFO:35:0.5 \
-  MINLEN:36 \
-  AVGQUAL:20
+  ILLUMINACLIP:${adapter}:2:30:10:2 \ #ILLUMINACLIP:${adapter}:2:30:10:2 Gives the window to search for adapters and the location of my adapter file
+  LEADING:5 \ #This tells Trimmomatic to cut off the first and last 5 basepares if they fall below my quality threshold
+  TRAILING:5 \ #Same as above
+  MAXINFO:35:0.5 \ #MAXINFO:35:0.5 This is the balance between the minimum length I want a read to be and the error rate
+  MINLEN:36 \ #This is the minimum length of a read that will be kept
+  AVGQUAL:20 #This is the minimum quality to be kept
   
 done
 ````
 
-## bbduk ##
+After this I run the outputs through `fastqc` and `multiqc` again. The adapter contamination has been removed, however there are still a number of 6mer repetitive sequences. I also notice that the aximum sequence length is 151. Although my sequences were supposed to be 150bp in length, Genome Quebec sendan extra basepair on each read. This extra basepar could be a part of the problem.
+
+I decided to try two other trimming programs to see if any will result in no 6mer repetitive sequences. I choose bbduk and trim galore because they are the two I have seen in the literature other than Trimmomatic.
+
+### Trim_galore ###
+
+Trim Galore is a wrapper for cutadapt. Cutadapt trims adapters but dies not quality trim, trim_galore integrates fastqc to trim for quality as well. After a first pass, there is still 151 basepairs for some reads, and 6mer contamination in all reads. So the script below was used to first run it through to hard trim to 150bp, and then screen for adapters and quality. The output still had 6mer contamination and lower quality than Trimmomatic, which makes it an unideal fit for this pipeline.
 
 ````
 #!/bin/bash
-# Project directory variable:
-# project_dir=/home/katie/dachsProject/WingShapeBSA/20141205_A_DNASeq_PE
 
-# make variable for trimmomatic program location
-#trim=/home/tylera/bin/TrimGalore-0.6.6/trim_galore
-
-# make input directory for raw reads
-raw_dir=/2/scratch/TylerA/SSD/genomes
-
-# make output directory from trimmomatic outputs
-trim_dir=/2/scratch/TylerA/SSD/bbduk
-
-# make path to adapter sequences (to be used with ILLUMINACLIP)
-#adapter=/home/tylera/scripts/AllAdapters.fa
-
-#list all files to be read (all raw data)
-files=(${raw_dir}/*_R1.fastq.gz)
-
-#For loop over every file
-for file in ${files[@]}
-do
-name=${file}
-base=`basename ${name} _R1.fastq.gz`
-
-/usr/local/BBmap/bbduk.sh \
-in1=${raw_dir}/${base}_R1.fastq.gz \
-in2=${raw_dir}/${base}_R2.fastq.gz \
-out1=${trim_dir}/${base}_R1_trimmed.fastq.gz \
-out2=${trim_dir}/${base}_R2_trimmed.fastq.gz \
-ref=/home/tylera/scripts/AllAdapters.fa \
-threads=8 ftr=149 ktrim=r k=23 mink=6 hdist=1 tpe tbo \
-qtrim=rl trimq=20 minlength=36 2> /2/scratch/TylerA/SSD/bbduk/log/${base}.log
-
-
-  
-done
-````
-
-## Trim_galore ##
-
-````
-#!/bin/bash
-# Project directory variable:
-# project_dir=/home/katie/dachsProject/WingShapeBSA/20141205_A_DNASeq_PE
-
-# make variable for trimmomatic program location
+# make variable for trim_galore program location
 trim=/home/tylera/bin/TrimGalore-0.6.6/trim_galore
 
 # make input directory for raw reads
@@ -117,9 +83,6 @@ raw_dir=/2/scratch/TylerA/SSD/genomes
 
 # make output directory from trimmomatic outputs
 trim_dir=/2/scratch/TylerA/SSD/trim_galore
-
-# make path to adapter sequences (to be used with ILLUMINACLIP)
-#adapter=/home/tylera/scripts/AllAdapters.fa
 
 #list all files to be read (all raw data)
 files=(${raw_dir}/*_R1.fastq.gz)
@@ -151,6 +114,8 @@ do
 name=${file}
 base=`basename ${name} _R1.150bp_5prime.fq`
 
+#fastqc flag signals that we want to quality trim the reads as well
+
 ${trim} --paired --fastqc --cores 4 --retain_unpaired --gzip \
 ${trim_dir}/150/${base}_R1.150bp_5prime.fq ${trim_dir}/150/${base}_R2.150bp_5prime.fq \
 --o /2/scratch/TylerA/SSD/trim_galore
@@ -158,69 +123,75 @@ ${trim_dir}/150/${base}_R1.150bp_5prime.fq ${trim_dir}/150/${base}_R2.150bp_5pri
 done
 ````
 
-## Index for bbmap ##
+### bbduk ###
 
-````
-ref=/2/scratch/TylerA/Dmelgenome/dmel-all-chromosome-r6.23.fasta.gz
-````
-
-## BBMap ##
+Next I tried bbduk. This program is meant for quality as well as adapter trimming. It also has alot of options to customize exactly how you want to trim sequences, so it can be very adaptable. 
 
 ````
 #!/bin/bash
-#
-#project directory (to keep each run separate)
-#run=trimmed
 
-# directory of processed sequences with trimmomatic
+# make variable for trimmomatic program location
+#trim=/home/tylera/bin/TrimGalore-0.6.6/trim_galore
+
+# make input directory for raw reads
+raw_dir=/2/scratch/TylerA/SSD/genomes
+
+# make output directory from trimmomatic outputs
 trim_dir=/2/scratch/TylerA/SSD/bbduk
 
-# variable for the reference genome
-#refGenome=/2/scratch/TylerA/Dmelgenome/dmel-all-chromosome-r6.23.fasta.gz
-
-# make output directory from mapping outputs
-output=/2/scratch/TylerA/SSD/bbmap
-
-# make BWA directory path
-#dir=/usr/local/BBmap
-
-#list all files to be read (this selects the left end from each PE pair)
-#list all files to be read (this selects the left end from each PE pair)
-files=(${trim_dir}/*_R1_trimmed_good.fastq.gz)
-
-#echo ${files[@]}
+#list all files to be read (all raw data)
+files=(${raw_dir}/*_R1.fastq.gz)
 
 #For loop over every file
 for file in ${files[@]}
 do
 name=${file}
-base=`basename ${name} _R1_trimmed_good.fastq.gz`
+base=`basename ${name} _R1.fastq.gz`
 
-/usr/local/BBmap/bbmap.sh t=16 in1=${trim_dir}/${base}_R1_trimmed_good.fastq.gz \
-in2=${trim_dir}/${base}_R2_trimmed_good.fastq.gz \
-out=${output}/${base}.sam
+/usr/local/BBmap/bbduk.sh \ #Path to bbduk
+in1=${raw_dir}/${base}_R1.fastq.gz \
+in2=${raw_dir}/${base}_R2.fastq.gz \
+out1=${trim_dir}/${base}_R1_trimmed.fastq.gz \
+out2=${trim_dir}/${base}_R2_trimmed.fastq.gz \
+ref=/home/tylera/scripts/AllAdapters.fa \ #Path to reference adapters
+threads=8 ftr=149 ktrim=r k=23 mink=6 hdist=1 tpe tbo \
+qtrim=rl trimq=20 minlength=36 2> /2/scratch/TylerA/SSD/bbduk/log/${base}.log
 
-
-#ref=/2/scratch/TylerA/Dmelgenome/dmel-all-chromosome-r6.23.fasta.gz
-#Index commmand ran first
-
-
-#echo base is
-#echo ${base}
-#echo name is
-#echo ${name}
-
-
+#ftr=149: the basepair to trim after (anchored at 0) so 149 will trim off the 151st bp
+#ktrim=r: This flag tells bbduk that once it finds and adapter to trim everything to the right (r) of it
+#k=23: This is the expected length of my adapter
+#mink=6: This is the smallest possible length of an adapter to trim
+#hdist=1: This allows one mismatch in a trimmed region
+#tpe: This tells bbduk to trim both reads to the same length if an adapter is found on one pair
+#tbo: This trims based on paired overlap detection
+#qtrim=rl: Adapters are expected on the right side of reads
+#trimq=20: Trim anything qith quality less than 20
+#2> : save the log to this folder
+  
 done
 ````
 
-## BWA mem ##
+BBduk removed far more 6mers and also removed the extra asepair present with the other two trimmers. Quality appears to be high, and although there is still a small amount of 6mer contamination, they do not match any adapter sequences so they may be contamination from yeast or bacteria which are common in fly samples. BBduk also did not removed much more than the other two, which hopefully means I did not accidentally over-trim my reads.
+
+
+
+### BWA mem ###
+
+In order to map my reads I download the Drosophila reference genome from flybase using 'curl'
+````
+curl -O ftp://ftp.flybase.net/genomes/Drosophila_melanogaster/dmel_r6.23_FB2018_04/fasta/dmel-all-chromosome-r6.23.fasta.gz
+````
+I then need to index it so that BWA knows how to read it.
+
+````
+bwa index dmel-all-chromosome-r6.23.fasta.gz
+````
+
+Once I have an indexed reference genome I can map my reads to it using 'BWA mem' Using the following script.
+
 
 ````
 #!/bin/bash
-#
-#project directory (to keep each run separate)
-#run=trimmed
 
 # directory of processed sequences with trimmomatic
 trim_dir=/2/scratch/TylerA/SSD/bbduk
@@ -237,21 +208,13 @@ bwa_dir=/usr/local/bwa/0.7.8
 cd ${bwa_dir}
 
 #list all files to be read (this selects the left end from each PE pair)
-#list all files to be read (this selects the left end from each PE pair)
 files=(${trim_dir}/*_R1_trimmed_good.fastq.gz)
-
-#echo ${files[@]}
 
 #For loop over every file
 for file in ${files[@]}
 do
 name=${file}
 base=`basename ${name} _R1_trimmed_good.fastq.gz`
-
-#echo base is
-#echo ${base}
-#echo name is
-#echo ${name}
 
 bwa mem -t 16 -M ${refGenome} \
 ${trim_dir}/${base}_R1_trimmed_good.fastq.gz \
@@ -260,9 +223,15 @@ ${trim_dir}/${base}_R2_trimmed_good.fastq.gz \
 done
 
 # -M Mark shorter split hits as secondary (for Picard compatibility).
+# -t used to tell BWA to use 16 threads
 ````
 
-## Sam to Bam ##
+
+### Sam to Bam ###
+
+I next converted the SAM files outputted from the mapping to BAM files. SAM files are very large, and take up too much space on the cluster, so keeping them in their binary format is less memory intensive. The following script is written to just take any SAM files in the current directory and convert them to BAM. I can then use `rm *SAM` to get rid of the huge SAM files.
+
+During this step I also sort the reads in the samples. This will be necessary in downstream filtering and other steps.
 
 ````
 #!/bin/bash
@@ -283,19 +252,16 @@ samtools view -b -@8 ${sam_dir}/${base}.SAM | samtools sort -o ${bam_dir}/${base
 done 
 
 # -b output to bam
-# -q skip alignments with MAP quality less than [int]
 # @8 use 8 threads
 ````
 
-## Merge files ##
+### Merge files ###
+
+My initial samples did not meet the read depth that we paid for, so Genome Quebec re-ran any samples that were less than 105M reads. At this stage I need to merge the samples from the two different runs in to matching files. I use the following script:
 
 ````
 #!/bin/bash
-#Only works if all lanes are L001/L002
 
-#Each sample was run on 2 seperate runs, there is a mathing sequencing
-#file in each directory (identical names) Within each directory, each
-#library was run on 2 lanes marked as 001 and 002
 run1=run1
 run2=run2
 
@@ -315,7 +281,9 @@ ${bam_dir}/${run2}/${base}_bwa_PE.bam
 done 
 ````
 
-## Quality filter ##
+For this to run I create a run1/ and run2/ directory and sort my reads in to them using `mv`. I then need to move the samples that did not need an extra run in to my merged/ folder, because they can cause issues with this script if they do not have a matching pair in the run2/ file. After the files have been merged I can delete my run1/ and run2/ directories.
+
+### Quality filter ###
 
 ````
 #for all files
