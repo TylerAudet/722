@@ -568,10 +568,78 @@ samtools mpileup -B -Q 20 -f \
 And I also create sync files for population statistic calculations:
 
 ````
-java -ea -jar /usr/local/popoolation/mpileup2sync.jar --input samples.mpileup --output samples.sync
+java -ea -jar /usr/local/popoolation/mpileup2sync.jar --threads 16 --input samples.mpileup --output samples.sync
+````
+
+## Popoolation Statistics ##
+
+### Tajima's ($\pi$) ###
+
+The first population parameter I would like to look at it nucleotide diversity ($\pi$). This measure will give me diversity across samples along the genome, this may highlight some areas of interest to examine further. Using this script I can look across my samples in a 1000bp sliding window to measure nucleotide diversity. This is a large window, but it can give general ideas as to which areas are of interest.
+
+
+````
+#! /bin/bash
+
+
+dir=~/bin/VarScan.v2.3.9.jar
+in=/2/scratch/TylerA/SSD/bwamap/mpile
+out=/2/scratch/TylerA/SSD/bwamap/mpile/vcf
+
+files=(${in}/*.mpileup)
+for file in ${files[@]}
+do
+#echo ${files[@]}
+name=${file}
+base=`basename ${name} .mpileup`
+
+java -Xmx32g -jar \
+~/bin/VarScan.v2.4.4.jar \
+mpileup2cns \
+${in}.mpileup \
+--min-coverage 50 \
+--min-reads2 2 \
+--p-value 1e-5 \
+--strand-filter 1 \
+--min-var-freq 0.1 \
+--min-freq-for-hom 0.98 \
+--min-avg-qual 20 \
+--variants \
+--output-vcf 1 \
+| bgzip > ${out}.vcf.gz
+
+done
+````
+The output can be visualized in R with the following script:
+
+````
+
 ````
 
 
+### Fst for our Experimental population ###
+
+Next, I want to calculate the Fst statistic for my experimental population compared to my control populations to look at structure.
+
+````
+perl /home/tylera/bin/popoolation2_1201/fst-sliding.pl \
+				--input /2/scratch/TylerA/SSD/bwamap/Experimental/sub.sync \
+				--output /2/scratch/TylerA/SSD/bwamap/popoolation/sub.fst \
+				--suppress-noninformative \
+				--min-count 2 \
+				--min-coverage 10 \
+				--max-coverage 300 \
+				--min-covered-fraction 1 \
+				--window-size 50 \
+				--step-size 50 \
+				--pool-size 100
+````
+
+## CMH Test ##
+
+
+
+## SNP calling ##
 
 
 
