@@ -573,9 +573,9 @@ java -ea -jar /usr/local/popoolation/mpileup2sync.jar --threads 16 --input sampl
 
 ## Popoolation Statistics ##
 
-### Tajima's ($\pi$) ###
+### Tajima's $\pi$ ###
 
-The first population parameter I would like to look at it nucleotide diversity ($\pi$). This measure will give me diversity across samples along the genome, this may highlight some areas of interest to examine further. Using this script I can look across my samples in a 1000bp sliding window to measure nucleotide diversity. This is a large window, but it can give general ideas as to which areas are of interest.
+The first population parameter I would like to look at it nucleotide diversity $\pi$. This measure will give me diversity across samples along the genome, this may highlight some areas of interest to examine further. Using this script I can look across my samples in a 1000bp sliding window to measure nucleotide diversity. This is a large window, but it can give general ideas as to which areas are of interest.
 
 
 ````
