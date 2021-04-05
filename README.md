@@ -564,6 +564,22 @@ samtools mpileup -B -Q 20 -f \
 /2/scratch/TylerA/SSD/bwamap/gatk/*_realigned.bam \
 > samples.mpileup
 ````
+These mpileups need to have the indels and repeteive regions masked because these are regions where SNP false discovery is common. This can be done with popoolation commands.
+
+````
+# ID indels
+perl /home/tylera/bin/popoolation2_1201/indel_filtering/identify-indel-regions.pl --input /2/scratch/TylerA/SSD/bwamap/Experimental/Experiment.mpileup --output /2/scratch/TylerA/SSD/bwamap/Experimental/Experiment.gtf --indel-window 5
+
+
+# hard masks indels
+
+perl /home/tylera/bin/popoolation_1.2.2/basic-pipeline/filter-pileup-by-gtf.pl --gtf /2/scratch/TylerA/SSD/bwamap/Experimental/Experiment.gtf --input /2/scratch/TylerA/SSD/bwamap/Experimental/Experiment.mpileup --output /2/scratch/TylerA/SSD/bwamap/Experimental/sample_indels.mpileup
+
+# same as above but for repetetive
+
+perl /home/tylera/bin/popoolation_1.2.2/basic-pipeline/filter-pileup-by-gtf.pl --gtf /2/scratch/TylerA/Dmelgenome/dmel-all-r6.23.gtf --input /2/scratch/TylerA/SSD/bwamap/Experimental/sample_indels.mpileup --output /2/scratch/TylerA/SSD/bwamap/Experimental/sample_indels_repetetive.mpileup
+
+````
 
 And I also create sync files for population statistic calculations:
 
@@ -573,42 +589,48 @@ java -ea -jar /usr/local/popoolation/mpileup2sync.jar --threads 16 --input sampl
 
 ## Popoolation Statistics ##
 
-### Tajima's $\pi$ ###
+### Tajima's pi ###
 
-The first population parameter I would like to look at it nucleotide diversity $\pi$. This measure will give me diversity across samples along the genome, this may highlight some areas of interest to examine further. Using this script I can look across my samples in a 1000bp sliding window to measure nucleotide diversity. This is a large window, but it can give general ideas as to which areas are of interest.
+The first population parameter I would like to look at it nucleotide diversity pi. This measure will give me diversity across samples along the genome, this may highlight some areas of interest to examine further. Using this script I can look across my samples in a 1000bp sliding window to measure nucleotide diversity. This is a large window, but it can give general ideas as to which areas are of interest.
 
 
 ````
-#! /bin/bash
+#/bin/bash
 
+#Path to PoPoolation
+pi=/home/tylera/bin/popoolation_1.2.2/Variance-sliding.pl
 
-dir=~/bin/VarScan.v2.3.9.jar
-in=/2/scratch/TylerA/SSD/bwamap/mpile
-out=/2/scratch/TylerA/SSD/bwamap/mpile/vcf
+# Path to input directory
+input=/2/scratch/TylerA/SSD/bwamap/pile
 
-files=(${in}/*.mpileup)
+# Path to output Tajima Pi files
+output=/2/scratch/TylerA/SSD/bwamap/popoolation
+
+files=(${input}/*.pileup)
+
 for file in ${files[@]}
+
 do
-#echo ${files[@]}
+
 name=${file}
-base=`basename ${name} .mpileup`
 
-java -Xmx32g -jar \
-~/bin/VarScan.v2.4.4.jar \
-mpileup2cns \
-${in}.mpileup \
---min-coverage 50 \
---min-reads2 2 \
---p-value 1e-5 \
---strand-filter 1 \
---min-var-freq 0.1 \
---min-freq-for-hom 0.98 \
---min-avg-qual 20 \
---variants \
---output-vcf 1 \
-| bgzip > ${out}.vcf.gz
+base=`basename ${name} .pileup`
 
-done
+perl ${pi} \
+	--input ${input}/${base}.pileup \
+	--output ${output}/${base}.pi \
+	--measure pi \
+	--window-size 1000 \
+	--step-size 1000 \
+	--min-count 2 \
+	--min-coverage 4 \
+	--max-coverage 250 \
+	--min-qual 20 \
+	--pool-size 200 \
+	--fastq-type sanger \
+	--snp-output ${output}/${base}.snps \
+	--min-covered-fraction 0.5
+done 
 ````
 The output can be visualized in R with the following script:
 
