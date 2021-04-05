@@ -657,15 +657,107 @@ perl /home/tylera/bin/popoolation2_1201/fst-sliding.pl \
 				--pool-size 100
 ````
 
+The resulting Fst file can be visualized in R: 
+
+````
+library(tidyverse)
+library(data.table)
+library(ggplot2)
+
+
+ddat2 <- fread("~/Desktop/SSD/Data/sub.fst")
+
+head(ddat2)
+
+ccol <- ncol(ddat2)
+
+head(ccol)
+
+for (i in 33:ccol){
+  ddat2[[i]] <- gsub(".*=","", ddat2[[i]])
+}
+
+for (i in 33:ccol){
+  ddat2[[i]] <- as.numeric(ddat2[[i]])
+}
+ 
+ddat2$meanFst <- rowMeans(subset(ddat2, select = c(33:ccol)), na.rm = TRUE)
+
+ddat2 <- ddat2[ddat2$meanFst!='NaN',]
+
+head(ddat2)
+
+ddat2 <- ddat2[,c(1,2,3,4,5,34)]
+
+colnames(ddat2) <- c('chr', 'window', "num", 'frac', 'meanCov','meanFst')
+
+ddat22L <- ddat2[which(ddat2$chr=='2L'),]
+ddat22R <- ddat2[which(ddat2$chr=='2R'),]
+ddat23L <- ddat2[which(ddat2$chr=='3L'),]
+ddat23R <- ddat2[which(ddat2$chr=='3R'),]
+ddat24 <- ddat2[which(ddat2$chr=='4'),]
+ddat2X <- ddat2[which(ddat2$chr=='X'),]
+
+ddat2 <- rbind(ddat2X, ddat22L, ddat22R, ddat23L, ddat23R, ddat24)
+
+g <- nrow(ddat2[which(ddat2$chr=='2L'),])
+h <- nrow(ddat2[which(ddat2$chr=='2R'),])
+i <- nrow(ddat2[which(ddat2$chr=='3L'),])
+j <- nrow(ddat2[which(ddat2$chr=='3R'),])
+k <- nrow(ddat2[which(ddat2$chr=='4'),])
+l <- nrow(ddat2[which(ddat2$chr=='X'),])
+
+#X-2L-2R-3L-3R-4
+ddat2$number <-  c((1:l),
+                   (l+1):(l+g), 
+                   (l+g+1):(l+g+h), 
+                   (l+g+h+1):(l+g+h+i),
+                   (l+g+h+i+1):(l+g+h+i+j),
+                   (l+g+h+i+j+1):(l+g+h+i+j+k))
+
+### PLOTS:
+
+ggplot(ddat2, aes(x=number, y=meanFst, color=chr)) +
+  geom_point(size=0.5, show.legend = F) +
+  theme(panel.background = element_blank()) +
+  scale_y_continuous(limits=c(0, 1), breaks=seq(0, 1, 0.1)) +
+  xlab("Chromosome") +
+  ylab(expression(F[ST])) +
+  scale_x_discrete(limits=c(l/2, l+(g/2), (l+g+(h/2)), (l+g+h+(i/2)), (l+g+h+i+(j/2)), (l+g+h+i+j+(k/2))), labels = c("X","2L", "2R", '3L', '3R', "4")) +
+  scale_colour_manual(values=c("seagreen", "darkslateblue", 'darkred', 'darkorchid4', 'darkolivegreen', 'darkblue')) +
+  theme(text = element_text(size=20),
+        axis.text.x= element_text(size=15), 
+        axis.text.y= element_text(size=15))
+````
+
+colours.png![image](https://user-images.githubusercontent.com/77504755/113582719-b79dd600-95f6-11eb-86cf-a88faa2a6045.png)
+
 ## CMH Test ##
 
 
 
 ## SNP calling ##
 
+SNPs can be indentified using varscan and the following code:
 
+````
+java -Xmx32g -jar \
+~/bin/VarScan.v2.3.9.jar \
+mpileup2cns \
+/2/scratch/TylerA/SSD/bwamap/Experimental/sample_indels_repetetive.mpileup \
+--min-coverage 50 \
+--min-reads2 2 \
+--p-value 1e-5 \
+--strand-filter 1 \
+--min-var-freq 0.1 \
+--min-freq-for-hom 0.98 \
+--min-avg-qual 20 \
+--variants \
+--output-vcf 1 \
+| bgzip > sub.vcf.gz
+````
 
-
+Using this code varscan identified 327734 SNPs.
 
 
 
