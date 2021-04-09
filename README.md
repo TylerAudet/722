@@ -567,6 +567,9 @@ samtools mpileup -B -Q 20 -f \
 These mpileups need to have the indels and repeteive regions masked because these are regions where SNP false discovery is common. This can be done with popoolation commands.
 
 ````
+# Create a GTF
+ /usr/local/RepeatMasker/RepeatMasker -pa 10 -species drosophila -gff dmel-all-chromosome-r6.23.fasta
+
 # ID indels
 perl /home/tylera/bin/popoolation2_1201/indel_filtering/identify-indel-regions.pl --input /2/scratch/TylerA/SSD/bwamap/Experimental/Experiment.mpileup --output /2/scratch/TylerA/SSD/bwamap/Experimental/Experiment.gtf --indel-window 5
 
@@ -578,66 +581,15 @@ perl /home/tylera/bin/popoolation_1.2.2/basic-pipeline/filter-pileup-by-gtf.pl -
 # same as above but for repetetive
 
 perl /home/tylera/bin/popoolation_1.2.2/basic-pipeline/filter-pileup-by-gtf.pl --gtf /2/scratch/TylerA/Dmelgenome/dmel-all-r6.23.gtf --input /2/scratch/TylerA/SSD/bwamap/Experimental/sample_indels.mpileup --output /2/scratch/TylerA/SSD/bwamap/Experimental/sample_indels_repetetive.mpileup
-
 ````
 
 And I also create sync files for population statistic calculations:
 
 ````
-java -ea -jar /usr/local/popoolation/mpileup2sync.jar --threads 16 --input samples.mpileup --output samples.sync
+java -ea -jar /usr/local/popoolation/mpileup2sync.jar --threads 16 --input sample_indels_repetetive.mpileup --output sample_indels_repetetive.sync
 ````
 
 ## Popoolation Statistics ##
-
-### Tajima's pi ###
-
-The first population parameter I would like to look at it nucleotide diversity pi. This measure will give me diversity across samples along the genome, this may highlight some areas of interest to examine further. Using this script I can look across my samples in a 1000bp sliding window to measure nucleotide diversity. This is a large window, but it can give general ideas as to which areas are of interest.
-
-
-````
-#/bin/bash
-
-#Path to PoPoolation
-pi=/home/tylera/bin/popoolation_1.2.2/Variance-sliding.pl
-
-# Path to input directory
-input=/2/scratch/TylerA/SSD/bwamap/pile
-
-# Path to output Tajima Pi files
-output=/2/scratch/TylerA/SSD/bwamap/popoolation
-
-files=(${input}/*.pileup)
-
-for file in ${files[@]}
-
-do
-
-name=${file}
-
-base=`basename ${name} .pileup`
-
-perl ${pi} \
-	--input ${input}/${base}.pileup \
-	--output ${output}/${base}.pi \
-	--measure pi \
-	--window-size 1000 \
-	--step-size 1000 \
-	--min-count 2 \
-	--min-coverage 4 \
-	--max-coverage 250 \
-	--min-qual 20 \
-	--pool-size 200 \
-	--fastq-type sanger \
-	--snp-output ${output}/${base}.snps \
-	--min-covered-fraction 0.5
-done 
-````
-The output can be visualized in R with the following script:
-
-````
-
-````
-
 
 ### Fst for our Experimental population ###
 
@@ -645,7 +597,7 @@ Next, I want to calculate the Fst statistic for my experimental population compa
 
 ````
 perl /home/tylera/bin/popoolation2_1201/fst-sliding.pl \
-				--input /2/scratch/TylerA/SSD/bwamap/Experimental/sub.sync \
+				--input /2/scratch/TylerA/SSD/bwamap/Experimental/sample_indels_repetetive.sync \
 				--output /2/scratch/TylerA/SSD/bwamap/popoolation/sub.fst \
 				--suppress-noninformative \
 				--min-count 2 \
