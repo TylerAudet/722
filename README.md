@@ -1,4 +1,6 @@
-# 722
+# A pipeline for identifying variants of interest in a sexual size dimorphism reversed long term evolve and resequence study
+
+
 
 ### MD5 check ###
 
@@ -598,14 +600,13 @@ Next, I want to calculate the Fst statistic for my experimental population compa
 ````
 perl /home/tylera/bin/popoolation2_1201/fst-sliding.pl \
 				--input /2/scratch/TylerA/SSD/bwamap/Experimental/sample_indels_repetetive.sync \
-				--output /2/scratch/TylerA/SSD/bwamap/popoolation/sub.fst \
-				--suppress-noninformative \
+				--output /2/scratch/TylerA/SSD/bwamap/popoolation/single_SNP.fst \
 				--min-count 2 \
 				--min-coverage 10 \
 				--max-coverage 300 \
 				--min-covered-fraction 1 \
-				--window-size 50 \
-				--step-size 50 \
+				--window-size 1 \
+				--step-size 1 \
 				--pool-size 100
 ````
 
@@ -682,7 +683,31 @@ ggplot(ddat2, aes(x=number, y=meanFst, color=chr)) +
         axis.text.y= element_text(size=15))
 ````
 
-colours.png![image](https://user-images.githubusercontent.com/77504755/113582719-b79dd600-95f6-11eb-86cf-a88faa2a6045.png)
+Single_bp_Fst.png![image](https://user-images.githubusercontent.com/77504755/114544388-8c376e80-9c28-11eb-884c-e6f3455c09d2.png)
+
+
+## SNP calling ##
+
+SNPs can be indentified using varscan and the following code:
+
+````
+java -Xmx32g -jar \
+~/bin/VarScan.v2.3.9.jar \
+mpileup2cns \
+/2/scratch/TylerA/SSD/bwamap/Experimental/sample_indels_repetetive.mpileup \
+--min-coverage 50 \
+--min-reads2 2 \
+--p-value 1e-5 \
+--strand-filter 1 \
+--min-var-freq 0.1 \
+--min-freq-for-hom 0.98 \
+--min-avg-qual 20 \
+--variants \
+--output-vcf 1 \
+| bgzip > sub.vcf.gz
+````
+
+Using this code varscan identified 327734 SNPs.
 
 ## CMH Test ##
 
@@ -832,28 +857,7 @@ dim(loci) #28694
 
 ````
 
-## SNP calling ##
 
-SNPs can be indentified using varscan and the following code:
-
-````
-java -Xmx32g -jar \
-~/bin/VarScan.v2.3.9.jar \
-mpileup2cns \
-/2/scratch/TylerA/SSD/bwamap/Experimental/sample_indels_repetetive.mpileup \
---min-coverage 50 \
---min-reads2 2 \
---p-value 1e-5 \
---strand-filter 1 \
---min-var-freq 0.1 \
---min-freq-for-hom 0.98 \
---min-avg-qual 20 \
---variants \
---output-vcf 1 \
-| bgzip > sub.vcf.gz
-````
-
-Using this code varscan identified 327734 SNPs.
 
 
 
