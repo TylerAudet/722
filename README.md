@@ -10,17 +10,29 @@ Parallel to this size concordant selection experiment, another lineage was selec
 
 Stewart & Rice (2018) conclude that SSD is a highly persistent trait. They then hypothesise that genes responsible for this phenotypic conservation would be extremely polygenic and located far upstream of body size determining loci (Stewart & Rice, 2018). The genomic consequences of this SSD reversal have yet to be examined, and a comparison to the large and small selection lineages have also not been conducted. With this pipeline I plan on identifying SNPs that are present in this sexual size reversal lineage of flies. This will lay the foundation to follow up on Turner et al., (2011) after 378 generations of experimental evolution. This work also allows an examination of the genes responsible for the conservation of SSD in D. melanogaster. I hypothesize that genes under selection in the SSD reversal lineage will be upstream of the genes found by Turner et al. (2011), and that possibly the same alleles may be present in the sex reversal population as the large and small populations. In this examination I plan on establishing a pipeline that can be used to clean and map the genomes and identify SNPs that are under selection. I also plan on looking at Fst as a measure of heterozygosity in the reversal selection lineage to identify locations across the genomes that are under selection to further verify the loci of interest for further analysis.
 
+## Methods
+
+Selection experiment and data acquisition
+
+Selection was performed by A. Stewart and early results published in Turner et al., (2011) and Stewart & Rice (2018). Flies were sorted by size with a novel sieve system and allowed to mate and lay eggs for 24 hours. This was repeated every 14 days for 378 generations. After 378 generations flies were killed in ethanol and stored at -18oC until extraction. DNA was extracted with a Qiagen DNeasy kit. The DNA was sequenced on an Illumina NovaSeq 6000 from a PCR-free shotgun library. Sequencing and library preparation was performed by Genome Quebec.
+
+Pipeline components
+
+Data was first checked for issues from exporting using an MD5 checksum. Next FastQC was used to check quality and size, and BBduk was used to trim adapters and low-quality reads (Bushnell et al., 2017). FastQC was used to verify that adapters were removed (Andrews, 2010). Next reads were mapped to a reference genome using BWA-mem (Li, 2013). SAM files were converted to the smaller BAM files and a second read from the sequencer was merged with the first and all files were filtered to remove anything with read quality under 30 and read-groups were added for GATK compatibility using SAMtools view and merge (Li et al., 2009). Optical duplicates were removed using Picard (Picard Team, 2021). The genome analysis toolkit (GATK) was used to realign around indels (Van der Auwera & O'Connor, 2020). An mpileup file was created using SAMtools for the SSD reversal and control populations to do pairwise analysis. Repetitive regions were removed using Picard and SNPs were called using Varscan (Koboldt et al., 2012). A sync file was also created for population statistics using popoolation2 (Kofler et al., 2011). Population statistics were carried out using R version 4.0.1 (R core team, 2020). To create an R object from a sync file and to calculate Ne Pool-seq was used (Taus et al., 2017). Acer was used to perform a CMH test for selection on allele frequency (Spitzer et al., 2020). Finally, genes of interest found from the CMH were filtered from the SNP calls using vcftools (Danecek et al., 2011). These gees of interest were then annotated using SNPEff (Cingolani et al., 2012).
+
 ### MD5 check ###
 
-My samples were downloaded from the Genome Quebec website using curl on to the McMaster cluster. To ensure they were uploaded without issue I run an MD5 check using the command below. All files print out that they are downloaded 'OK', so I can continue.
+My samples were downloaded from the Genome Quebec website using `curl` on to the McMaster cluster. To ensure they were uploaded without issue I run an MD5 check using the command below. All files print out that they are downloaded 'OK', so I can continue.
 
 ````
 md5sum -c readSets.md5
+
+# -c flag denotes that we are checking they are the same as expected
 ````
 
 ### Quality check ###
 
-To check te quality of my samples I run `fastqc *.fastq` on them. This will report the number of reads, the proportion of duplication, adapter contamination, and repetetive sequences. I can then run `multiqc .` to compile all the outputs of fastqc to a single summary sheet. The output looks like this:
+To check the quality of my samples I run `fastqc *.fastq` on them. This will report the number of reads, the proportion of duplication, adapter contamination, and repetetive sequences. I can then run `multiqc .` to compile all the outputs of fastqc into a single summary sheet. The output looks like this:
 
 Screen Shot 2021-04-01 at 8.56.08 AM![image](https://user-images.githubusercontent.com/77504755/113297298-6fb24280-92c8-11eb-94b2-df4574fb5dfe.png)
 
@@ -64,23 +76,29 @@ java -jar ${trim} PE -threads 16 -phred33 \
   ${trim_dir}/${base}_R1_SE.fastq.gz \
   ${trim_dir}/${base}_R2_PE.fastq.gz \
   ${trim_dir}/${base}_R2_SE.fastq.gz \
-  ILLUMINACLIP:${adapter}:2:30:10:2 \ #ILLUMINACLIP:${adapter}:2:30:10:2 Gives the window to search for adapters and the location of my adapter file
-  LEADING:5 \ #This tells Trimmomatic to cut off the first and last 5 basepares if they fall below my quality threshold
-  TRAILING:5 \ #Same as above
-  MAXINFO:35:0.5 \ #MAXINFO:35:0.5 This is the balance between the minimum length I want a read to be and the error rate
-  MINLEN:36 \ #This is the minimum length of a read that will be kept
-  AVGQUAL:20 #This is the minimum quality to be kept
+  ILLUMINACLIP:${adapter}:2:30:10:2 \
+  LEADING:5 \
+  TRAILING:5 \
+  MAXINFO:35:0.5 \
+  MINLEN:36 \
+  AVGQUAL:20
   
 done
+
+#ILLUMINACLIP:${adapter}:2:30:10:2 Gives the window to search for adapters and the location of my adapter file
+#LEADING:5 This tells Trimmomatic to cut off the first 5 basepares if they fall below my quality threshold
+#TRAILING:5 This tells Trimmomatic to cut off the last 5 basepares if they fall below my quality threshold
+#MAXINFO:35:0.5 This is the balance between the minimum length I want a read to be and the error rate
+#MINLEN:36 This is the minimum length of a read that will be kept
+#AVGQUAL:20 This is the minimum quality to be kept, any reads with quality below 20 are trimmed out
+
 ````
 
-After this I run the outputs through `fastqc` and `multiqc` again. The adapter contamination has been removed, however there are still a number of 6mer repetitive sequences. I also notice that the aximum sequence length is 151. Although my sequences were supposed to be 150bp in length, Genome Quebec sendan extra basepair on each read. This extra basepar could be a part of the problem.
-
-I decided to try two other trimming programs to see if any will result in no 6mer repetitive sequences. I choose bbduk and trim galore because they are the two I have seen in the literature other than Trimmomatic.
+After this I run the outputs through `fastqc` and `multiqc` again. Multiqc says the adapter contamination has been removed, however there are still a number of 6mer repetitive sequences that may indicate some adapters were not fully removed. I also notice that the maximum sequence length is 151. Although my sequences were supposed to be 150bp in length, Genome Quebec sends an extra basepair on each read. This extra basepair could be influencing the ability for trimmomatic to identify adapter fragments. For this reason I decided to try two other trimming programs to see if any will result in no 6mer repetitive sequences. I choose bbduk and trim galore because they are the two I have seen in the literature other than Trimmomatic.
 
 ### Trim_galore ###
 
-Trim Galore is a wrapper for cutadapt. Cutadapt trims adapters but dies not quality trim, trim_galore integrates fastqc to trim for quality as well. After a first pass, there is still 151 basepairs for some reads, and 6mer contamination in all reads. So the script below was used to first run it through to hard trim to 150bp, and then screen for adapters and quality. The output still had 6mer contamination and lower quality than Trimmomatic, which makes it an unideal fit for this pipeline.
+Trim Galore is a wrapper for cutadapt. Cutadapt trims adapters but does not quality trim, trim_galore integrates fastqc to trim for quality as well. After a first pass, there is still 151 basepairs for some reads, and 6mer contamination in all reads. So the script below was used to first run it through to hard trim to 150bp, and then screen for adapters and quality. The output still had 6mer contamination and lower quality than Trimmomatic, which makes it an unideal fit for this pipeline.
 
 ````
 #!/bin/bash
@@ -109,6 +127,12 @@ ${raw_dir}/${base}_R1.fastq.gz ${raw_dir}/${base}_R2.fastq.gz \
   
 done
 
+#--hardtrim5 150 Trimms all reads to be 150bp
+#--retain_unpaired Keeps the reads that don't pair after trimming
+
+````
+
+````
 
 # make variable for trimmomatic program location
 trim=/home/tylera/bin/TrimGalore-0.6.6/trim_galore
@@ -131,11 +155,17 @@ ${trim_dir}/150/${base}_R1.150bp_5prime.fq ${trim_dir}/150/${base}_R2.150bp_5pri
 --o /2/scratch/TylerA/SSD/trim_galore
   
 done
+
+#--paired denotes we are using paired reads
+#--fastqc tells trim_galore that we want quality trimming
+#--gzip outputs a gzipped file
+#--cores 4 multicore to speed up the process
+
 ````
 
 ### bbduk ###
 
-Next I tried bbduk. This program is meant for quality as well as adapter trimming. It also has alot of options to customize exactly how you want to trim sequences, so it can be very adaptable. 
+Next I tried bbduk. This program is meant for quality as well as adapter trimming. It also has a large number of options to customize exactly how you want to trim sequences, so it can be very adaptable. 
 
 ````
 #!/bin/bash
@@ -181,9 +211,7 @@ qtrim=rl trimq=20 minlength=36 2> /2/scratch/TylerA/SSD/bbduk/log/${base}.log
 done
 ````
 
-BBduk removed far more 6mers and also removed the extra asepair present with the other two trimmers. Quality appears to be high, and although there is still a small amount of 6mer contamination, they do not match any adapter sequences so they may be contamination from yeast or bacteria which are common in fly samples. BBduk also did not removed much more than the other two, which hopefully means I did not accidentally over-trim my reads.
-
-
+BBduk removed far more 6mers and also removed the extra basepair present with the other two trimmers. Quality appears to be high, and although there is still a small amount of 6mer contamination, they do not match any adapter sequences so they may be contamination from yeast or bacteria which are common in fly samples. BBduk also did not removed many more reads than the other two, which hopefully means I did not accidentally over-trim my reads.
 
 ### BWA mem ###
 
@@ -191,19 +219,18 @@ In order to map my reads I download the Drosophila reference genome from flybase
 ````
 curl -O ftp://ftp.flybase.net/genomes/Drosophila_melanogaster/dmel_r6.23_FB2018_04/fasta/dmel-all-chromosome-r6.23.fasta.gz
 ````
-I then need to index it so that BWA knows how to read it.
+I then need to index the reference genome so that BWA knows how to read it.
 
 ````
 bwa index dmel-all-chromosome-r6.23.fasta.gz
 ````
 
-Once I have an indexed reference genome I can map my reads to it using 'BWA mem' Using the following script.
-
+Once I have an indexed reference genome I can map my reads to it using 'BWA mem' with the following script.
 
 ````
 #!/bin/bash
 
-# directory of processed sequences with trimmomatic
+# directory of processed sequences with BBduk
 trim_dir=/2/scratch/TylerA/SSD/bbduk
 
 # variable for the reference genome
@@ -233,7 +260,7 @@ ${trim_dir}/${base}_R2_trimmed_good.fastq.gz \
 done
 
 # -M Mark shorter split hits as secondary (for Picard compatibility).
-# -t used to tell BWA to use 16 threads
+# -t used to tell BWA to use 16 threads to speed things up
 ````
 
 
@@ -295,7 +322,7 @@ For this to run I create a run1/ and run2/ directory and sort my reads in to the
 
 ### Quality filter ###
 
-Next I need to filter for quality because accuracy is very important for SNP calling, as low quaslity can result in false positives. To do this I can use `samtools view` to filter out reads below a certain quality score. I Did this code twice, one with a conservative quality of 20, and again with a more stringent quality of 30. I compared the coverage between the two and found that a more stringent quality score removed more reads without impacting the coverage, so I decided to go with a quality filter of 30.
+Next I need to filter for quality because accuracy is very important for SNP calling, as low quaslity can result in false positives. To do this I can use `samtools view` to filter out reads below a certain quality score. I ran this code twice, once with a conservative quality of 20, and again with a more stringent quality of 30 as the threshold. I compared the coverage between the two and found that a more stringent quality score removed more reads without impacting the coverage, so I decided to go with a quality filter of 30.
 
 ````
 #for all files
@@ -342,7 +369,7 @@ samtools depth ${in_dir}/${base}.bam > ${in_dir}/${base}.coverage
 done
 ````
 
-The output .coverage file can be visualized with a histogram using the scripts below.
+The output .coverage file can be visualized with a histogram using the scripts below. First a shell script is created that converts my .coverage files to be compatible with R. Next a script is run which creates a histogram in R. This histogram can be copied to my local computer using `scp` and viewed.
 
 ````
 #!/bin/bash
@@ -376,6 +403,7 @@ pdf(paste(title, ".pdf", sep=""))
 hist(dat$depth, xlim=c(0,500), breaks=500)
 dev.off()
 ````
+
 ### Quality threshold of 20 ###
 C1F_20.pdf![image](https://user-images.githubusercontent.com/77504755/113307003-abeaa080-92d2-11eb-9f77-48da9dea49b7.png)
 
@@ -383,11 +411,11 @@ C1F_20.pdf![image](https://user-images.githubusercontent.com/77504755/113307003-
 
 C1F_30.pdf![image](https://user-images.githubusercontent.com/77504755/113307082-c1f86100-92d2-11eb-9aca-cd725e8ecf2f.png)
 
-Coverage was not noticeably reduced by a more stringent filter, so in the interest of calling the fewest false SNPs as possible I filter all samples for quality 30. We expected around 200x coverage using the formula coverage = # of reads * length of reads / length of the genome. My coverage histogram shows coverage over 200x though, which means there could be duplicated reads from PCR optical duplication.
+Coverage was not noticeably reduced by a more stringent filter, so in the interest of calling the fewest false SNPs as possible I filter all samples for quality 30. We expected around 200x coverage using the formula coverage = # of reads * length of reads / length of the genome. My coverage histogram shows coverage over 200x though, which means there could be duplicated reads from PCR optical duplication. It also means we could have copy nuymber variation because some reads have coverage that is double what we expected. Copy number variation can be dealt with downstream in programs by imitting the max coverage of reads for programs that call SNPs or calculate Fst. Optical duplicates however should be removed before moving on.
 
 ### Deduplicating the bam files ###
 
-Because there seem to be erroneous duplication, next I need to remove these optical duplicates. This is done most commonly with Picard. I used the following script:
+Next I need to remove these optical duplicates. This is done most commonly with Picard. I used the following script:
 
 ````
 #! /bin/bash
@@ -411,13 +439,21 @@ M=${outdir}/dupstat.txt \
 VALIDATION_STRINGENCY=SILENT \
 REMOVE_DUPLICATES=true
 done
+
+#M=  Where to put summary statistics
+#VALIDATION_STRINGENCY=SILENT Improves performance because it doesn't read through unecessary information in the bam file
+#REMOVE_DUPLICATES=true Tells picard to not keep duplicates after it finds them
 ````
 
 Afterwards my coverage looks like this:
 
 ***S2F.pdf![image](https://user-images.githubusercontent.com/77504755/113308302-07695e00-92d4-11eb-838f-c6b4c95d68d4.png)
 
-There still appears to be reads over 200x, but fewer. This step also reduced coverage by quite a bit, with far ewer reads close to the 200x mark.
+There still appears to be reads over 200x, but fewer. This step also reduced coverage by quite a bit, with far fewer reads close to the 200x mark.
+
+### Combining samples ###
+
+At this stage I combined my replicates and sexes together for each treatment. I also begin only working with my control (C) and SSD reversed (E) treatments. Comparisons between sexes will be done at a later time to look for sexual conflict, and comparison of the large (L) and small (S) flies will also be done at another time. For the purposes of this pipeline I am looking at how SSD-reversal flies compare to the previous finding of Turner et al., (2011). So here I merge my replicates and sexes. I use the same code that I used to merge my two sequences from Genome Quebec above. This time hoever I first put all replicate 1 samples in /run1 and replicate 2 in /run2 and merge. I then put all males in /run1 and all females in /run2 and merge. I now have just two samples: C and E.
 
 ### Adding in read groups ###
 
@@ -448,11 +484,13 @@ java -jar ${picdir} AddOrReplaceReadGroups I=${project_dir}/${base}.bam \
   RGSM=${base}
 
 done
+
+# The specifications here are just to add bland read-groups because GATK needs read-groups before it can run. I am basically just setting them to defaults just so they are there.
 ````
 
 ## Index for GATK ##
 
-Indel realignment is done using GATK. This is a three step process. With the first script I index all files for GATK so they can be read properly. In the next script, indels are identified and marked. And finally in the third script, the indels are filtered out.
+Indel realignment is done using GATK. This is a three step process. With the first script I index all files for GATK so they can be read properly. In the next script, indels are identified and marked. And finally in the third script, the indels are filtered out. Indels can create misalignments in my mapping file. To deal with this mapping error I first need to identify indels with GATK, and then realign around them to correct for mapping alignment errors due to indels.
 
 ````
 #! /bin/bash 
@@ -540,63 +578,34 @@ java -Xmx32g -jar ${gatk} -I ${final_bam}/${base}_rmd_RG.bam -R ${ref_genome} \
 done
 ````
 
-### pileups and mpileups ###
+### mpileup and sync file ###
 
-A single mpileup will be needed with my sample information for SNP calling and population statistics, and a pileup file will be needed for each sample for the pi statistic calculation. I can create mpileups using `samtools mpileup`. First I can make a pileup for each sample by running the following script. I've already filtered for quality multipe times, so I have disabled the quality filtering because it is redundant.
+A single mpileup will be needed with my sample information for SNP calling and population statistics. I can create an mpileup using `samtools mpileup`. I will also need a sync file to work with for popoolation statistics such as Fst and for statstics testing in R.
 
-````
-#! /bin/bash
-
-mapped_dir=/2/scratch/TylerA/SSD/bwamap/gatk
-picdir=/usr/local/picard-tools/picard.jar
-genome=/2/scratch/TylerA/Dmelgenome/gatk/dmel-all-chromosome-r6.23.fa
-out_dir=/2/scratch/TylerA/SSD/bwamap/pile
-
-files=(${mapped_dir}/*_realigned.bam)
-for file in ${files[@]}
-do
-name=${file}
-base=`basename ${name} _realigned.bam`
-samtools mpileup -B -Q 0 -f ${genome} ${mapped_dir}/${base}_realigned.bam \
-> ${out_dir}/${base}.pileup
-done
-
-#-B: disables base alignment quality calculations to speed up the process
-#-Q 0: Disables base quality filtering
-#-f: tells samtools that the files are indexed as fasta files
-````
-
-I next create my mpileup for all my samples:
+I next create my mpileup for my samples:
 
 ````
 samtools mpileup -B -Q 20 -f \
 /2/scratch/TylerA/Dmelgenome/gatk/dmel-all-chromosome-r6.23.fa \
 /2/scratch/TylerA/SSD/bwamap/gatk/*_realigned.bam \
-> samples.mpileup
+> Treatments_combined.mpileup
 ````
-These mpileups need to have the indels and repeteive regions masked because these are regions where SNP false discovery is common. This can be done with popoolation commands.
+This mpilup need to have the repetetive regions removed because these are regions where SNP false discovery is common. This can be done with popoolation commands.
 
 ````
 # Create a GTF
  /usr/local/RepeatMasker/RepeatMasker -pa 10 -species drosophila -gff dmel-all-chromosome-r6.23.fasta
 
-# ID indels
-perl /home/tylera/bin/popoolation2_1201/indel_filtering/identify-indel-regions.pl --input /2/scratch/TylerA/SSD/bwamap/Experimental/Experiment.mpileup --output /2/scratch/TylerA/SSD/bwamap/Experimental/Experiment.gtf --indel-window 5
+# Remove repetetive repetetive
 
+perl /home/tylera/bin/popoolation_1.2.2/basic-pipeline/filter-pileup-by-gtf.pl --gtf /2/scratch/TylerA/Dmelgenome/dmel-all-r6.23.gtf --input /2/scratch/TylerA/SSD/bwamap/Treatment_combined/Treatment_combined.mpileup --output /2/scratch/TylerA/SSD/bwamap/Treatment_combined/Treatment_combined_norepeat.mpileup
 
-# hard masks indels
-
-perl /home/tylera/bin/popoolation_1.2.2/basic-pipeline/filter-pileup-by-gtf.pl --gtf /2/scratch/TylerA/SSD/bwamap/Experimental/Experiment.gtf --input /2/scratch/TylerA/SSD/bwamap/Experimental/Experiment.mpileup --output /2/scratch/TylerA/SSD/bwamap/Experimental/sample_indels.mpileup
-
-# same as above but for repetetive
-
-perl /home/tylera/bin/popoolation_1.2.2/basic-pipeline/filter-pileup-by-gtf.pl --gtf /2/scratch/TylerA/Dmelgenome/dmel-all-r6.23.gtf --input /2/scratch/TylerA/SSD/bwamap/Experimental/sample_indels.mpileup --output /2/scratch/TylerA/SSD/bwamap/Experimental/sample_indels_repetetive.mpileup
 ````
 
 And I also create sync files for population statistic calculations:
 
 ````
-java -ea -jar /usr/local/popoolation/mpileup2sync.jar --threads 16 --input sample_indels_repetetive.mpileup --output sample_indels_repetetive.sync
+java -ea -jar /usr/local/popoolation/mpileup2sync.jar --threads 16 --input Treatment_combined_norepeat.mpileup --output Treatment_combined_norepeat.sync
 ````
 
 ## Popoolation Statistics ##
@@ -607,8 +616,9 @@ Next, I want to calculate the Fst statistic for my experimental population compa
 
 ````
 perl /home/tylera/bin/popoolation2_1201/fst-sliding.pl \
-				--input /2/scratch/TylerA/SSD/bwamap/Experimental/sample_indels_repetetive.sync \
-				--output /2/scratch/TylerA/SSD/bwamap/popoolation/single_SNP.fst \
+				--input /2/scratch/TylerA/SSD/bwamap/Treatment_combined/Treatment_combined_norepeat.sync \
+				--output /2/scratch/TylerA/SSD/bwamap/Treatment_combined/Treatment_combined.fst \
+				--suppress-noninformative \
 				--min-count 2 \
 				--min-coverage 10 \
 				--max-coverage 300 \
@@ -702,23 +712,34 @@ SNPs can be indentified using varscan and the following code:
 java -Xmx32g -jar \
 ~/bin/VarScan.v2.3.9.jar \
 mpileup2cns \
-/2/scratch/TylerA/SSD/bwamap/Experimental/sample_indels_repetetive.mpileup \
+/2/scratch/TylerA/SSD/bwamap/Treatment_combined/Treatment_combined_norepeat.mpileup \
 --min-coverage 50 \
---min-reads2 2 \
---p-value 1e-5 \
---strand-filter 1 \
---min-var-freq 0.1 \
---min-freq-for-hom 0.98 \
+--min-reads2 3 \
+--p-value 0.1 \
+--min-var-freq 0.01 \
+--min-freq-for-hom 1 \
 --min-avg-qual 20 \
 --variants \
 --output-vcf 1 \
-| bgzip > sub.vcf.gz
+| bgzip > Treatment_combined_norepeat.vcf
+
+#mpileup2cns: this looks for bothh SNPs and indels
+#--min-coverage 50 minimum coverage a read must have to be considered a true variant
+#--min-reads 3 minimum reads an allele must have to be considered a true variant
+#--p-value 0.1 A less stringet p-value is recomended for pooled data to make sure rare alleles are noyt ruled out
+#--min-var-freq 0.01 Essentilly setting it so every single rare allele is examined
+#--min-freq-for-hom 1 Saying that to be considered homozygoes a loci must be 100% one bp, to avoid loss of rare alleles
+#--min-avg-qual 20 Filtering for quality again
+#--variants Denotes that we are looking for variants
+#--output-vcf 1 Outputs a vcf
+#bgzip
+
+
 ````
 
-Using this code varscan identified 327734 SNPs.
+Using this code varscan identified ######### SNPs.
 
 ## CMH Test ##
-
 
 ````
 # R work
@@ -731,7 +752,7 @@ library(poolSeq)
 library(ACER)
 
 #Load in my sync file created by popoolation2
-mySync <- read.sync(file="/2/scratch/TylerA/SSD/bwamap/Experimental/sample_indels_repetetive.sync", gen=c(0, 0, 0, 0, 400, 400, 400, 400), repl=c(1, 1, 2, 2, 1, 1, 2, 2),polarization = "minor", keepOnlyBiallelic = TRUE)
+mySync <- read.sync(file="/2/scratch/TylerA/SSD/bwamap/Experimental/sample_indels_repetetive.sync", gen=c(375, 375), repl=c(1, 1),polarization = "minor", keepOnlyBiallelic = TRUE)
 
 #Create a matrix for allele frequences in replicate 1
 af<-af(mySync, repl = 1, gen = 0)
