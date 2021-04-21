@@ -631,36 +631,49 @@ perl /home/tylera/bin/popoolation2_1201/fst-sliding.pl \
 The resulting Fst file can be visualized in R: 
 
 ````
+#Visualize Fst
+
+
 library(tidyverse)
 library(data.table)
 library(ggplot2)
 
 
-ddat2 <- fread("~/Desktop/SSD/Data/sub.fst")
+ddat2 <- fread("/2/scratch/TylerA/SSD/bwamap/Sexes_combined/Sexes_combined_50.fst")
 
 head(ddat2)
+
+#V7=C1:E1
+#V8=C1:E2
+#V9=C2:E1
+#V10=C2E2
+
+#Removing comparisons between control and between SSD-reversal
+ddat2<-subset(ddat2, select = -c(V6,V11) )
+
 
 ccol <- ncol(ddat2)
 
 head(ccol)
 
-for (i in 33:ccol){
+for (i in 9:ccol){
   ddat2[[i]] <- gsub(".*=","", ddat2[[i]])
 }
 
-for (i in 33:ccol){
+for (i in 9:ccol){
   ddat2[[i]] <- as.numeric(ddat2[[i]])
 }
- 
-ddat2$meanFst <- rowMeans(subset(ddat2, select = c(33:ccol)), na.rm = TRUE)
+
+ddat2$meanFst <- rowMeans(subset(ddat2, select = c(9:ccol)), na.rm = TRUE)
 
 ddat2 <- ddat2[ddat2$meanFst!='NaN',]
 
 head(ddat2)
 
-ddat2 <- ddat2[,c(1,2,3,4,5,34)]
+ddat2<-subset(ddat2, select = -c(V7,V8,V9,V10))
 
 colnames(ddat2) <- c('chr', 'window', "num", 'frac', 'meanCov','meanFst')
+
 
 ddat22L <- ddat2[which(ddat2$chr=='2L'),]
 ddat22R <- ddat2[which(ddat2$chr=='2R'),]
@@ -685,10 +698,9 @@ ddat2$number <-  c((1:l),
                    (l+g+h+1):(l+g+h+i),
                    (l+g+h+i+1):(l+g+h+i+j),
                    (l+g+h+i+j+1):(l+g+h+i+j+k))
-
-### PLOTS:
-
-ggplot(ddat2, aes(x=number, y=meanFst, color=chr)) +
+                   
+                   
+  fst50<-ggplot(ddat2, aes(x=number, y=meanFst, color=chr)) +
   geom_point(size=0.5, show.legend = F) +
   theme(panel.background = element_blank()) +
   scale_y_continuous(limits=c(0, 1), breaks=seq(0, 1, 0.1)) +
@@ -699,6 +711,12 @@ ggplot(ddat2, aes(x=number, y=meanFst, color=chr)) +
   theme(text = element_text(size=20),
         axis.text.x= element_text(size=15), 
         axis.text.y= element_text(size=15))
+        
+                         
+pdf("/2/scratch/TylerA/SSD/bwamap/Sexes_combined/fst50.pdf",width=6,height=3)
+fast50
+dev.off()
+
 ````
 
 Single_bp_Fst.png![image](https://user-images.githubusercontent.com/77504755/114544388-8c376e80-9c28-11eb-884c-e6f3455c09d2.png)
