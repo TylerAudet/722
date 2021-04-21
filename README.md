@@ -741,8 +741,10 @@ Using this code varscan identified ######### SNPs.
 
 ## CMH Test ##
 
+I can test which loci are underselection by running a CMH test on allele frequencies. Using pool-seq in R I can extract allele frequencies and coverage fron a sync file. I can then get a table with all te variants and their corresponding allele frequencies in one matrix and their corresponding coverage in another matrix. From here a program called ACER can be used to run a CMH test that accounts for drift on each SNP to look for significance. I can run a benjamini-hochberg correction for false discovery on this, and get a narrowed down list of SNPs under selection between my control and SSD-reversed population.
+
+
 ````
-# R work
 rm(list=ls())
 #install.packages("/home/tylera/bin/poolSeq-0.3.5.tar.gz", repos=NULL, type="source")
 #install.packages("/home/tylera/bin/ACER-1.0.2.tar.gz")
@@ -752,53 +754,52 @@ library(poolSeq)
 library(ACER)
 
 #Load in my sync file created by popoolation2
-mySync <- read.sync(file="/2/scratch/TylerA/SSD/bwamap/Experimental/sample_indels_repetetive.sync", gen=c(375, 375), repl=c(1, 1),polarization = "minor", keepOnlyBiallelic = TRUE)
+#Load in replicates as 1,2 (C) and 3,4 (E) because otherwse replicate 1s will be merged
+mySync <- read.sync(file="/2/scratch/TylerA/SSD/bwamap/Sexes_combined/Sexes_combined_norepeat.sync", gen=c(375,375,375,375), repl=c(1, 2, 3, 4),polarization = "minor", keepOnlyBiallelic = TRUE)
 
-#Create a matrix for allele frequences in replicate 1
-af<-af(mySync, repl = 1, gen = 0)
-af2<-af(mySync, repl = 1, gen = 400)
-afMat<-as.matrix(af)
-afMat2<-as.matrix(af2)
+#Create a matrix for allele frequences in replicates
+C1af<-af(mySync, repl = 1, gen = 375)
+C1afMat<-as.matrix(C1af)
 
-#Create a matrix of allele frequences for replicate 2
-baf<-af(mySync, repl = 2, gen = 0)
-baf2<-af(mySync, repl = 2, gen = 400)
-bafMat<-as.matrix(baf)
-bafMat2<-as.matrix(baf2)
+C2af<-af(mySync, repl = 2, gen = 375)
+C2afMat<-as.matrix(C2af)
 
-#Verify the genomic positions line up in the replicate 1 and replicate 2 matrices
-all(rownames(bafMat) == rownames(bafMat2))
-all(rownames(afMat) == rownames(afMat2))
+E1af<-af(mySync, repl = 3, gen = 375)
+E1afMat<-as.matrix(E1af)
+
+E2af<-af(mySync, repl = 4, gen = 375)
+E2afMat<-as.matrix(E2af)
 
 #Give more meaningful names to columns
-colnames(afrep1) <- c("R1.C", "R1.E")
-colnames(afrep2) <- c("R2.C", "R2.E")
+colnames(C1afMat) <- c("C1")
+colnames(C2afMat) <- c("C2")
+colnames(E1afMat) <- c("E1")
+colnames(E2afMat) <- c("E2")
 
-#combine replicate 1 and replicate 2
-afrep2<-cbind(bafMat,bafMat2)
-afrep1<-cbind(afMat,afMat2)
-afMat<-cbind(afrep1,afrep2)
- 
 #Repeat to create a matrix of coverage
-cov<-coverage(mySync, repl = 1, gen = 0)
-cov2<-coverage(mySync, repl = 1, gen = 400)
-covMat<-as.matrix(cov)
-covMat2<-as.matrix(cov2)
-covrep1<-cbind(covMat,covMat2)
+C1cov<-coverage(mySync, repl = 1, gen = 375)
+C1covMat<-as.matrix(C1cov)
 
-bcov<-coverage(mySync, repl = 2, gen = 0)
-bcov2<-coverage(mySync, repl = 2, gen = 400)
-bcovMat<-as.matrix(bcov)
-bcovMat2<-as.matrix(bcov2)
-covrep2<-cbind(bcovMat,bcovMat2)
+C2cov<-coverage(mySync, repl = 2, gen = 375)
+C2covMat<-as.matrix(C2cov)
 
-colnames(covrep1) <- c("R1.C", "R1.E")
-colnames(covrep2) <- c("R2.C", "R2.E")
+E1cov<-coverage(mySync, repl = 3, gen = 375)
+E1covMat<-as.matrix(E1cov)
 
-covMat<-cbind(covrep1,covrep2)
+E2cov<-coverage(mySync, repl = 4, gen = 375)
+E2covMat<-as.matrix(E2cov)
 
+#Give more meaningful names to columns
+colnames(C1covMat) <- c("C1")
+colnames(C2covMat) <- c("C2")
+colnames(E1covMat) <- c("E1")
+colnames(E2covMat) <- c("E2")
 
-# extracting only the chromosomes I want to look at and removing the random scaffolds
+#Combine in to one allele frequency and one coverage matrix
+afMat<-cbind(C1afMat,C2afMat,E1afMat,E2afMat)
+covMat<-cbind(C1covMat,C2covMat,E1covMat,E2covMat)
+
+# extracting only the chromosomes I want to look at and removing the random scaffolds that are present in the reference
 X<-afMat[grep("^X",rownames(afMat)),]
 L2<-afMat[grep("^2L",rownames(afMat)),]
 R2<-afMat[grep("^2R",rownames(afMat)),]
@@ -816,40 +817,19 @@ cR3<-covMat[grep("^3R",rownames(covMat)),]
 cLR4<-covMat[grep("^4",rownames(covMat)),]
 covdata<-rbind(cX,cL2,cR2,cL3,cR3,cLR4)
 
-## I got an error because there can not be 0s in coverage, so I use this code to see how many 0s I have in my coverage matrix
-#mydatanew=covdata[,-1]                  # first gene name column deleted
-#nonzero_row <- covdata[rowSums(covdata) == 0, ]  # filtered row read count above 0 
-#dim(nonzero_row) #270
-
-#Omitting NAs
-#Also must omit 0s from coverage data, so I convert them to NAs and omit NAs from the coverage data as well.
+#Getting rid of NAs and loci with 0 coverage for one lineage. These both interfere with the CMH test so must be removed.
 afdata <- na.omit(afdata)
 covdata[covdata==0] <- NA
 covdata <- na.omit(covdata)
 
-#dim(afdata)
-#dim(covdata)
-
-
-#create a new dataframe which contains only the names that match
-#match <- covdata[rownames(covdata) %in% rownames(afdata),]
-
-#Ensure my allele frequency and coverage matrices still line up
-all(rownames(afdata) == rownames(match))
-
-#change the name back to covdata when I've varified I didn't ess the command up
-#match <- covdata
-
-
 #Create the variables I will need for the CMH test
-rep<-c(1,2) #Number of replicates
-Ne<-500 #Estimated effective population size
-tp<-c(0,400) #Generations of evolution for each sample
-ps<-ps <- rep(100, 2*length(rep)) #Pool size
+rep<-c(1,2,1,2) #Number of replicates
+Ne<-c(100,100) #Estimated effective population size
+tp<-c(0,0,375,375) #Generations of evolution for each sample
+ps<-c(400,400,400,400) #Pool size
 
 #Run the CMH command
-pval <- adapted.cmh.test(freq=afdata, coverage=covdata, Ne=rep(Ne,
-                         length(rep)), gen=tp, repl=rep, poolSize=ps)
+pval <- adapted.cmh.test(freq=afdata, coverage=covdata, Ne=Ne, gen=tp, repl=rep, poolSize=ps)
 
 #I get this warning, but the command appeared to run. I will need to verify that it was run correctly.
 #Warning messages:
@@ -865,26 +845,72 @@ pval <- adapted.cmh.test(freq=afdata, coverage=covdata, Ne=rep(Ne,
 #Convert the output to a matrix to work with
 p<-as.matrix(pval)
 
+#How many loci do I find?
+dim(p) #5711322 
+
 #Run a Benjamini Hochberg estimate to control for FDR
 padj<-p.adjust(p, method = "hochberg", n = length(p))
 
 #Look at the number of loci with significant p-values
-length(which(padj<0.05)) # 30349
-length(which(padj<0.01)) # 28694
+length(which(padj<0.05)) # 31317
+length(which(padj<0.01)) # 29729
 
-#Re-attach the SNP locations
+#Re-attach the variant locations
 afp<-cbind(afdata,padj)
-colnames(afp) <- c("R1.C", "R1.E", "R2.C", "R2.E", "padj")
 
+#Filter out the non-significant variants
 library(dplyr)
 df<-as.data.frame(afp)
-loci<-filter(df,padj<0.01)
+loci<-filter(df,padj<0.05)
 
 #How many interesting loci do I have?
-dim(loci) #28694
+dim(loci) #31317
+````
+### Annotating our interesting variants ###
 
+I can create a table from my CMH test with only interesting loci using R.
 
 ````
+
+#Extracting the locations of interest
+test <- tibble::rownames_to_column(loci)
+test2<-test[,1]
+test2<-as.data.frame(test2)
+
+library(tidyr)
+
+#Seperating the chromosome and the location on the chromosome
+test3<-test2 %>% separate(test2, c("chr", "loc"))
+colnames(test3) <- NULL
+
+#Output as a txt file
+write.table(test3, file = "/2/scratch/TylerA/SSD/bwamap/Sexes_combined/loci_table.txt", sep = "\t",
+            row.names = FALSE)
+````
+
+Wih this table I can filter the VCF I got from varscan to only contain the loci that the CMH test showed as significant. First I need to remove the quotes around the values in the table because they mess with the filtering step.
+
+````
+sed 's/\"//g' loci_table.txt > loci_table.txt
+````
+
+Nest I can use `vcftools` to filter my vcf file for interesting loci.
+
+````
+vcftools --vcf Sexes_combined_norepeat.vcf --out interesting_loci.vcf --positions ./loci_table.txt --recode --recode-INFO-all
+
+#--recode designates that I'm filtering
+#--recode-INFO-all designates that I want to keep the areas of interest
+#--positions tells vcftools what the file with my locations of interest is
+````
+
+
+
+
+
+
+
+
 
 
 
