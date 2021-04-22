@@ -598,7 +598,7 @@ This mpilup need to have the repetetive regions removed because these are region
 
 # Remove repetetive repetetive
 
-perl /home/tylera/bin/popoolation_1.2.2/basic-pipeline/filter-pileup-by-gtf.pl --gtf /2/scratch/TylerA/Dmelgenome/dmel-all-r6.23.gtf --input /2/scratch/TylerA/SSD/bwamap/Treatment_combined/Treatment_combined.mpileup --output /2/scratch/TylerA/SSD/bwamap/Treatment_combined/Treatment_combined_norepeat.mpileup
+perl /home/tylera/bin/popoolation_1.2.2/basic-pipeline/filter-pileup-by-gtf.pl --gtf /2/scratch/TylerA/Dmelgenome/dmel-all-chromosome-r6.23.fasta.out.gff --input /2/scratch/TylerA/SSD/bwamap/Treatment_combined/Treatent_combined.mpileup --output /2/scratch/TylerA/SSD/bwamap/Treatment_combined/Treatment_combined_norepeat.mpileup
 
 ````
 
@@ -755,7 +755,7 @@ mpileup2cns \
 
 ````
 
-Using this code varscan identified ######### SNPs.
+Using this code varscan identified 617602 SNPs.
 
 ## CMH Test ##
 
@@ -921,6 +921,22 @@ vcftools --vcf Sexes_combined_norepeat.vcf --out interesting_loci.vcf --position
 #--recode-INFO-all designates that I want to keep the areas of interest
 #--positions tells vcftools what the file with my locations of interest is
 ````
+
+After filtering, vcftools kept 31173 out of a possible 617602 Sites. This means that 31173 out of the 31317 SNPs found by the CMH test are also in the varscan output. I can then turn these intersting loci in to a table from the vcf because it will be easier to format and work with.
+
+````
+java -Xmx32g -jar /usr/local/gatk/GenomeAnalysisTK.jar -R /2/scratch/TylerA/Dmelgenome/gatk/dmel-all-chromosome-r6.23.fasta -V interesting_loci.vcf.recode.vcf -T VariantsToTable -F CHROM -F POS -F TYPE -F REF -F ALT -o interesting_loci.table
+````
+Next I can annotate the genomic loci in this table with SNPEff
+
+````
+java -Xmx8g -jar ~/bin/snpEff/snpEff.jar -ud 0 Drosophila_melanogaster interesting_loci.table > loci.ann.table
+````
+
+
+
+
+
 
 
 
