@@ -700,7 +700,7 @@ ddat2$number <-  c((1:l),
                    (l+g+h+i+j+1):(l+g+h+i+j+k))
                    
                    
-  fst50<-ggplot(ddat2, aes(x=number, y=meanFst, color=chr)) +
+  fst500<-ggplot(ddat2, aes(x=number, y=meanFst, color=chr)) +
   geom_point(size=0.5, show.legend = F) +
   theme(panel.background = element_blank()) +
   scale_y_continuous(limits=c(0, 1), breaks=seq(0, 1, 0.1)) +
@@ -714,12 +714,12 @@ ddat2$number <-  c((1:l),
         
                          
 pdf("/2/scratch/TylerA/SSD/bwamap/Sexes_combined/fst50.pdf",width=6,height=3)
-fast50
+fst500
 dev.off()
 
 ````
 
-Single_bp_Fst.png![image](https://user-images.githubusercontent.com/77504755/114544388-8c376e80-9c28-11eb-884c-e6f3455c09d2.png)
+fst500.pdf![image](https://user-images.githubusercontent.com/77504755/116002927-e2fa5c00-a5c9-11eb-8dcc-2cb62af8986b.png)
 
 
 ## SNP calling ##
@@ -903,16 +903,10 @@ colnames(test3) <- NULL
 
 #Output as a txt file
 write.table(test3, file = "/2/scratch/TylerA/SSD/bwamap/Sexes_combined/loci_table.txt", sep = "\t",
-            row.names = FALSE)
+            row.names = FALSE, quotes = FALSE)
 ````
 
-Wih this table I can filter the VCF I got from varscan to only contain the loci that the CMH test showed as significant. First I need to remove the quotes around the values in the table because they mess with the filtering step.
-
-````
-sed 's/\"//g' loci_table.txt > loci_table.txt
-````
-
-Nest I can use `vcftools` to filter my vcf file for interesting loci.
+Wih this table I can filter the VCF I got from varscan to only contain the loci that the CMH test showed as significant. Next I can use `vcftools` to filter my vcf file for interesting loci.
 
 ````
 vcftools --vcf Sexes_combined_norepeat.vcf --out interesting_loci.vcf --positions ./loci_table.txt --recode --recode-INFO-all
