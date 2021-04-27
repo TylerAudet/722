@@ -1097,9 +1097,7 @@ Li H. (2013) Aligning sequence reads, clone sequences and assembly contigs with 
 
 Picard Team (2021) http://broadinstitute.github.io/picard/
 
-R Core Team (2020). R: A language and environment for statistical
-##   computing. R Foundation for Statistical Computing, Vienna, Austria.
-##   URL https://www.R-project.org/.
+R Core Team (2020). R: A language and environment for statistical computing. R Foundation for Statistical Computing, Vienna, Austria. URL https://www.R-project.org/.
 
 Reeve, J. P. & Fairbairn, D. J. (1996). Sexual size dimorphism as a correlated response to selection on body size: an empirical test of the quantitative genetic model. Evolution 50, 1927–1938 
 
@@ -1110,9 +1108,6 @@ Taus T, Futschik A and Schlötterer C. 2017. Quantifying selection with pool-Seq
 Tigreros, N., & Lewis, S. M. (2011). Direct and correlated responses to artificial selection on sexual size dimorphism in the flour beetle, Tribolium castaneum. Journal of evolutionary biology, 24(4), 835-842.
 
 Van der Auwera GA & O'Connor BD. (2020). Genomics in the Cloud: Using Docker, GATK, and WDL in Terra (1st Edition). O'Reilly Media.
-
-![image](https://user-images.githubusercontent.com/77504755/116255777-908f7b80-a740-11eb-9112-c87949b8fb74.png)
-
 
 
 
