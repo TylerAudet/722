@@ -721,6 +721,7 @@ dev.off()
 
 fst500.pdf![image](https://user-images.githubusercontent.com/77504755/116002927-e2fa5c00-a5c9-11eb-8dcc-2cb62af8986b.png)
 
+My Fst plot shows that after 378 generation a lot of genes seem to go to fixation. This is similar to the diffstat result in Turner et al. (2011) because it shows that selecting on body size influences a large number of genes scattered all across the genome.
 
 ## SNP calling ##
 
@@ -1001,10 +1002,19 @@ c + geom_bar(stat="identity") + coord_flip() + scale_y_continuous('') + scale_x_
 722go.png![image](https://user-images.githubusercontent.com/77504755/116240145-81550180-a731-11eb-9094-14974406905d.png)
 
 ````
+The two major enriched GO terms found by Turner et al. (2011) were post-larval development and metamorphosis. Neither of these terms show up in our top 20 enriched terms. I can look specifically for each of these by finding their GO terms from the supplementary data in Turner et al. (2011) and then searching my data set for them with the following code.
 
+````
+termStat(allgenes, "GO:0009791") #Post-embyonic development
+#           Annotated Significant Expected
+#GO:0009791       631         119     95.4
 
+termStat(allgenes, "GO:0007552") #Metamorphosis
+#           Annotated Significant Expected
+#GO:0007552       466          94    70.46
+````
 
-
+It does not appear that either of these terms were enriched significantly more tha expected. This is an interesting result because I'm finding different results from what Turner et al. (2011) found.
 
 
 
