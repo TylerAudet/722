@@ -993,8 +993,12 @@ gos<-select(stuff,c("Term","Significant"))
 gos
 
 gos <- transform(gos,Term = reorder(Term,Significant))
+
 c <- ggplot(gos,aes(x=Term,y=Significant))
+
 c + geom_bar(stat="identity") + coord_flip() + scale_y_continuous('') + scale_x_discrete('')
+
+722go.png![image](https://user-images.githubusercontent.com/77504755/116240145-81550180-a731-11eb-9094-14974406905d.png)
 
 ````
 
