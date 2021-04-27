@@ -322,7 +322,7 @@ For this to run I create a run1/ and run2/ directory and sort my reads in to the
 
 ### Quality filter ###
 
-Next I need to filter for quality because accuracy is very important for SNP calling, as low quaslity can result in false positives. To do this I can use `samtools view` to filter out reads below a certain quality score. I ran this code twice, once with a conservative quality of 20, and again with a more stringent quality of 30 as the threshold. I compared the coverage between the two and found that a more stringent quality score removed more reads without impacting the coverage, so I decided to go with a quality filter of 30.
+Next I need to filter for quality because accuracy is very important for SNP calling, as low quality can result in false positives. To do this I can use `samtools view` to filter out reads below a certain quality score. I ran this code twice, once with a conservative quality of 20, and again with a more stringent quality of 30 as the threshold. I compared the coverage between the two and found that a more stringent quality score removed more reads without impacting the coverage, so I decided to go with a quality filter of 30.
 
 ````
 #for all files
@@ -411,7 +411,7 @@ C1F_20.pdf![image](https://user-images.githubusercontent.com/77504755/113307003-
 
 C1F_30.pdf![image](https://user-images.githubusercontent.com/77504755/113307082-c1f86100-92d2-11eb-9aca-cd725e8ecf2f.png)
 
-Coverage was not noticeably reduced by a more stringent filter, so in the interest of calling the fewest false SNPs as possible I filter all samples for quality 30. We expected around 200x coverage using the formula coverage = # of reads * length of reads / length of the genome. My coverage histogram shows coverage over 200x though, which means there could be duplicated reads from PCR optical duplication. It also means we could have copy nuymber variation because some reads have coverage that is double what we expected. Copy number variation can be dealt with downstream in programs by imitting the max coverage of reads for programs that call SNPs or calculate Fst. Optical duplicates however should be removed before moving on.
+Coverage was not noticeably reduced by a more stringent filter, so in the interest of calling the fewest false SNPs as possible I filter all samples for quality 30. We expected around 200x coverage using the formula coverage = # of reads * length of reads / length of the genome. My coverage histogram shows coverage over 200x though, which means there could be duplicated reads from PCR optical duplication. It also means we could have copy number variation leading to mapping errors because some reads have coverage that is double what we expected. Copy number variation can be dealt with downstream in programs by omitting the max coverage of reads for programs that call SNPs or calculate Fst. Optical duplicates however should be removed before moving on.
 
 ### Deduplicating the bam files ###
 
@@ -420,24 +420,27 @@ Next I need to remove these optical duplicates. This is done most commonly with 
 ````
 #! /bin/bash
 
-mapped_dir=/2/scratch/TylerA/SSD/bwamap/filter30
-outdir=/2/scratch/TylerA/SSD/bwamap/dedup
+#! /bin/bash
+
+mapped_dir=/2/scratch/TylerA/SSD/bwamap/Sexes_combined
+outdir=/2/scratch/TylerA/SSD/bwamap/Sexes_combined
 picdir=/usr/local/picard-tools/picard.jar
 
-files=(${mapped_dir}/*.bam)
+files=(${mapped_dir}/*_merged_aligned_filtered.bam)
 
 for file in ${files[@]}
 do
 name=${file}
-base=`basename ${name} .bam`
+base=`basename ${name} _merged_aligned_filtered.bam`
 #echo ${name}
 java -Xmx2g -jar \
 ${picdir} MarkDuplicates \
-I=${mapped_dir}/${base}.bam \
-O=${outdir}/${base}_rmd.bam \
+I=${mapped_dir}/${base}_merged_aligned_filtered.bam \
+O=${outdir}/${base}_merged_aligned_filtered_rmd.bam \
 M=${outdir}/dupstat.txt \
 VALIDATION_STRINGENCY=SILENT \
 REMOVE_DUPLICATES=true
+
 done
 
 #M=  Where to put summary statistics
@@ -453,7 +456,7 @@ There still appears to be reads over 200x, but fewer. This step also reduced cov
 
 ### Combining samples ###
 
-At this stage I combined my replicates and sexes together for each treatment. I also begin only working with my control (C) and SSD reversed (E) treatments. Comparisons between sexes will be done at a later time to look for sexual conflict, and comparison of the large (L) and small (S) flies will also be done at another time. For the purposes of this pipeline I am looking at how SSD-reversal flies compare to the previous finding of Turner et al., (2011). So here I merge my replicates and sexes. I use the same code that I used to merge my two sequences from Genome Quebec above. This time hoever I first put all replicate 1 samples in /run1 and replicate 2 in /run2 and merge. I then put all males in /run1 and all females in /run2 and merge. I now have just two samples: C and E.
+At this stage I combined my replicates and sexes together for each treatment. I also begin only working with my control (C) and SSD reversed (E) treatments. Comparisons between sexes will be done at a later time to look for sexual conflict, and comparison of the large (L) and small (S) flies will also be done at another time. For the purposes of this pipeline I am looking at how SSD-reversal flies compare to the previous finding of Turner et al., (2011). So here I merge my sexes. I use the same code that I used to merge my two sequences from Genome Quebec above. This time however I first put all males in /run1 and all females in /run2 and merge. I now have just two samples: C and E with two biological replicates each.
 
 ### Adding in read groups ###
 
@@ -463,20 +466,20 @@ My next step is to realign around indels. To do this I need read-groups added to
 #! /bin/bash
 
 #Variable for project:
-project_dir=/2/scratch/TylerA/SSD/bwamap/dedup
+project_dir=/2/scratch/TylerA/SSD/bwamap/Sexes_combined/
 
 #Path to Picard
 picdir=/usr/local/picard-tools/picard.jar
 
 
-files=(${project_dir}/*.bam)
+files=(${project_dir}/*_merged_aligned_filtered_rmd.bam)
 for file in ${files[@]}
 do
 name=${file}
-base=`basename ${name} .bam`
+base=`basename ${name} _merged_aligned_filtered_rmd.bam`
 
-java -jar ${picdir} AddOrReplaceReadGroups I=${project_dir}/${base}.bam \
-  O=${project_dir}/${base}_RG.bam \
+java -jar ${picdir} AddOrReplaceReadGroups I=${project_dir}/${base}_merged_aligned_filtered_rmd.bam \
+  O=${project_dir}/${base}_merged_aligned_filtered_rmd_RG.bam \
   RGID=1_2 \
   RGLB=library1 \
   RGPL=illumina \
@@ -485,7 +488,7 @@ java -jar ${picdir} AddOrReplaceReadGroups I=${project_dir}/${base}.bam \
 
 done
 
-# The specifications here are just to add bland read-groups because GATK needs read-groups before it can run. I am basically just setting them to defaults just so they are there.
+# The specifications here are just to add standard read-groups because GATK needs read-groups before it can run. I am basically just setting them to defaults just so they are there.
 ````
 
 ## Index for GATK ##
@@ -498,18 +501,18 @@ Indel realignment is done using GATK. This is a three step process. With the fir
 # Index files
 
 #Variable to put indexed files in 
-index_dir=/2/scratch/TylerA/SSD/bwamap/gatk/index
+index_dir=/2/scratch/TylerA/SSD/bwamap/Sexes_combined/index
 
 #Path to input directory
-input=/2/scratch/TylerA/SSD/bwamap/dedup
+input=/2/scratch/TylerA/SSD/bwamap/Sexes_combined
 
-files=(${input}/*_rmd_RG.bam)
+files=(${input}/*_merged_aligned_filtered_rmd_RG.bam)
 for file in ${files[@]}
 do
 name=${file}
-base=`basename ${name} _rmd_RG.bam`
+base=`basename ${name} _merged_aligned_filtered_rmd_RG.bam`
 
-samtools index ${input}/${base}_rmd_RG.bam 
+samtools index ${input}/${base}_merged_aligned_filtered_rmd_RG.bam 
 
 done
 ````
@@ -522,10 +525,10 @@ samtools faidx dmel-all-chromosome-r6.23.fasta.gz
 ````
 #! /bin/bash 
 #Path to input directory
-final_bam=/2/scratch/TylerA/SSD/bwamap/dedup
+final_bam=/2/scratch/TylerA/SSD/bwamap/Sexes_combined
 
 #Path to output directory
-gatk_dir=/2/scratch/TylerA/SSD/bwamap/gatk
+gatk_dir=/2/scratch/TylerA/SSD/bwamap/Sexes_combined
 
 #Variable for reference genome (non-zipped)
 #index_dir=/home/sarahm/cvl/index_dir
@@ -535,27 +538,31 @@ ref_genome=/2/scratch/TylerA/Dmelgenome/gatk/dmel-all-chromosome-r6.23.fa
 gatk=/usr/local/gatk/GenomeAnalysisTK.jar
 
 
-files=(${final_bam}/*_rmd_RG.bam)
+files=(${final_bam}/*_merged_aligned_filtered_rmd_RG.bam)
 for file in ${files[@]}
 do
 name=${file}
-base=`basename ${name} _rmd_RG.bam`
+base=`basename ${name} _merged_aligned_filtered_rmd_RG.bam`
 
-java -Xmx32g -jar ${gatk} -I ${final_bam}/${base}_rmd_RG.bam \
+java -Xmx32g -jar ${gatk} -I ${final_bam}/${base}_merged_aligned_filtered_rmd_RG.bam \
 -R ${ref_genome} \
   -T RealignerTargetCreator \
   -o ${gatk_dir}/${base}.intervals
 
 done
+
+# -R is the reference genome (indexed)
+# -T is the tool in the gatk package I'm using
+# -o is the output
 ````
 
 ````
 #! /bin/bash 
 #Path to input directory
-final_bam=/2/scratch/TylerA/SSD/bwamap/dedup
+final_bam=/2/scratch/TylerA/SSD/bwamap/Sexes_combined
 
 #Path to output directory
-gatk_dir=/2/scratch/TylerA/SSD/bwamap/gatk
+gatk_dir=/2/scratch/TylerA/SSD/bwamap/Sexes_combined
 
 #Variable for reference genome (non-zipped)
 ref_genome=/2/scratch/TylerA/Dmelgenome/gatk/dmel-all-chromosome-r6.23.fasta
@@ -565,13 +572,13 @@ ref_genome=/2/scratch/TylerA/Dmelgenome/gatk/dmel-all-chromosome-r6.23.fasta
 gatk=/usr/local/gatk/GenomeAnalysisTK.jar
 
 
-files=(${final_bam}/*_rmd_RG.bam)
+files=(${final_bam}/*_merged_aligned_filtered_rmd_RG.bam)
 for file in ${files[@]}
 do
 name=${file}
-base=`basename ${name} _rmd_RG.bam`
+base=`basename ${name} _merged_aligned_filtered_rmd_RG.bam`
 
-java -Xmx32g -jar ${gatk} -I ${final_bam}/${base}_rmd_RG.bam -R ${ref_genome} \
+java -Xmx32g -jar ${gatk} -I ${final_bam}/${base}_merged_aligned_filtered_rmd_RG.bam -R ${ref_genome} \
   -T IndelRealigner -targetIntervals ${gatk_dir}/${base}.intervals \
   -o ${gatk_dir}/${base}_realigned.bam
 
@@ -585,27 +592,47 @@ A single mpileup will be needed with my sample information for SNP calling and p
 I next create my mpileup for my samples:
 
 ````
-samtools mpileup -B -Q 20 -f \
+samtools mpileup -Q 20 -f \
 /2/scratch/TylerA/Dmelgenome/gatk/dmel-all-chromosome-r6.23.fa \
-/2/scratch/TylerA/SSD/bwamap/gatk/*_realigned.bam \
-> Treatments_combined.mpileup
+/2/scratch/TylerA/SSD/bwamap/Sexes_combined/*_realigned.bam \
+> Sexes_combined.mpileup
+ 
+# -Q tells samtools to only keep the basepairs with quality over 20
+# -f signifies that our files are in fasta format
+
 ````
-This mpilup need to have the repetetive regions removed because these are regions where SNP false discovery is common. This can be done with popoolation commands.
+This mpilup need to have the repetetive regions removed because these are regions where SNP false discovery is common. This can be done with popoolation commands. I also mask around indels for my sync file and future population statistics.
 
 ````
 # Create a GTF
+
  /usr/local/RepeatMasker/RepeatMasker -pa 10 -species drosophila -gff dmel-all-chromosome-r6.23.fasta
+
 
 # Remove repetetive repetetive
 
-perl /home/tylera/bin/popoolation_1.2.2/basic-pipeline/filter-pileup-by-gtf.pl --gtf /2/scratch/TylerA/Dmelgenome/dmel-all-chromosome-r6.23.fasta.out.gff --input /2/scratch/TylerA/SSD/bwamap/Treatment_combined/Treatent_combined.mpileup --output /2/scratch/TylerA/SSD/bwamap/Treatment_combined/Treatment_combined_norepeat.mpileup
+perl /home/tylera/bin/popoolation_1.2.2/basic-pipeline/filter-pileup-by-gtf.pl --gtf /2/scratch/TylerA/Dmelgenome/dmel-all-chromosome-r6.23.fasta.out.gff --input /2/scratch/TylerA/SSD/bwamap/Sexes_combined/Sexes_combined.mpileup --output /2/scratch/TylerA/SSD/bwamap/Sexes_combined/Sexes_combined_norepeat.mpileup
+
+# ID indels
+perl /home/tylera/bin/popoolation2_1201/indel_filtering/identify-indel-regions.pl --input /2/scratch/TylerA/SSD/bwamap/Sexes_combined/Sexes_combined_norepeat.mpileup --output /2/scratch/TylerA/SSD/bwamap/Sexes_combined/Sexes_combined_norepeat.gtf --indel-window 5
+
+#Pileup entries processed: 112100048
+#Pileup entries containing at least one indel: 986281
+#How many bp of the reference are covered by indel-regions: 9275582
+
+# hard masks indels
+
+perl /home/tylera/bin/popoolation_1.2.2/basic-pipeline/filter-pileup-by-gtf.pl --gtf /2/scratch/TylerA/SSD/bwamap/Sexes_combined/Sexes_combined_norepeat.gtf --input /2/scratch/TylerA/SSD/bwamap/Sexes_combined/Sexes_combined_norepeat.mpileup --output /2/scratch/TylerA/SSD/bwamap/Sexes_combined/Sexes_combined_norepeat_noindel.mpileup
 
 ````
 
-And I also create sync files for population statistic calculations:
+This first line of code using repeat masker above creates a gff called dmel-all-chromosome-r6.23.fasta.out.gff. It also creates a gff that doesn't say 'out', this other file is the inverse of the file we need and should not be used because it will remove everything EXCEPT repetetive elements. Then when you get all the way to the end you'll be confused as to why you only have repetetive elements showing up in your results and there doesn't even seem to be genes in your genome any more and you'll have to do it all over again.
+
+
+Next, I also create sync files for population statistic calculations:
 
 ````
-java -ea -jar /usr/local/popoolation/mpileup2sync.jar --threads 16 --input Treatment_combined_norepeat.mpileup --output Treatment_combined_norepeat.sync
+java -ea -jar /usr/local/popoolation/mpileup2sync.jar --threads 16 --input /2/scratch/TylerA/SSD/bwamap/Sexes_combined/Sexes_combined_norepeat_noindel.mpileup --output /2/scratch/TylerA/SSD/bwamap/Sexes_combined/Sexes_combined_norepeat_noindel.sync
 ````
 
 ## Popoolation Statistics ##
@@ -616,16 +643,16 @@ Next, I want to calculate the Fst statistic for my experimental population compa
 
 ````
 perl /home/tylera/bin/popoolation2_1201/fst-sliding.pl \
-				--input /2/scratch/TylerA/SSD/bwamap/Treatment_combined/Treatment_combined_norepeat.sync \
-				--output /2/scratch/TylerA/SSD/bwamap/Treatment_combined/Treatment_combined.fst \
+				--input /2/scratch/TylerA/SSD/bwamap/Sexes_combined/Sexes_combined_norepeat_noindel.sync \
+				--output /2/scratch/TylerA/SSD/bwamap/Sexes_combined/Sexes_combined_noindel.fst \
 				--suppress-noninformative \
 				--min-count 2 \
 				--min-coverage 10 \
 				--max-coverage 300 \
 				--min-covered-fraction 1 \
-				--window-size 1 \
-				--step-size 1 \
-				--pool-size 100
+				--window-size 500 \
+				--step-size 500 \
+				--pool-size 400
 ````
 
 The resulting Fst file can be visualized in R: 
@@ -731,7 +758,7 @@ SNPs can be indentified using varscan and the following code:
 java -Xmx32g -jar \
 ~/bin/VarScan.v2.3.9.jar \
 mpileup2cns \
-/2/scratch/TylerA/SSD/bwamap/Treatment_combined/Treatment_combined_norepeat.mpileup \
+/2/scratch/TylerA/SSD/bwamap/Sexes_combined/Sexes_combined_norepeat.mpileup \
 --min-coverage 50 \
 --min-reads2 3 \
 --p-value 0.1 \
@@ -740,7 +767,7 @@ mpileup2cns \
 --min-avg-qual 20 \
 --variants \
 --output-vcf 1 \
-| bgzip > Treatment_combined_norepeat.vcf
+> Sexes_combined_norepeat.vcf
 
 #mpileup2cns: this looks for bothh SNPs and indels
 #--min-coverage 50 minimum coverage a read must have to be considered a true variant
@@ -753,10 +780,16 @@ mpileup2cns \
 #--output-vcf 1 Outputs a vcf
 #bgzip
 
+# STDOUT
+#112100048 bases in pileup file
+#1522325 variant positions (1284574 SNP, 243182 indel)
+#23658 were failed by the strand-filter
+#1498667 variant positions reported (1265967 SNP, 237879 indel)
+
 
 ````
 
-Using this code varscan identified 617602 SNPs.
+Using this code varscan identified 1284574 SNPs.
 
 ## CMH Test ##
 
@@ -917,7 +950,7 @@ vcftools --vcf Sexes_combined_norepeat.vcf --out interesting_loci.vcf --position
 #--positions tells vcftools what the file with my locations of interest is
 ````
 
-After filtering, vcftools kept 82033 out of a possible 617602 Sites. This means that 31173 out of the 31317 SNPs found by the CMH test are also in the varscan output. I can then turn these intersting loci in to a table from the vcf because it will be easier to format and work with.
+After filtering, vcftools kept 31173 out of a possible 1284574 Sites. This means that 31173 out of the 31317 SNPs found by the CMH test are also in the varscan output. I can then turn these intersting loci in to a table from the vcf because it will be easier to format and work with.
 
 ````
 java -Xmx32g -jar /usr/local/gatk/GenomeAnalysisTK.jar -R /2/scratch/TylerA/Dmelgenome/gatk/dmel-all-chromosome-r6.23.fasta -V interesting_loci.vcf.recode.vcf -T VariantsToTable -F CHROM -F POS -F TYPE -F REF -F ALT -o interesting_loci.table
@@ -926,9 +959,13 @@ Next I can annotate the genomic loci in this table with SNPEff
 
 ````
 java -Xmx8g -jar ~/bin/snpEff/snpEff.jar -ud 0 Drosophila_melanogaster interesting_loci.table > loci.ann.table
+
+# -ud stops SNPEff from keeping all the upstream and downstream elements that make the output much bigger and don't contain anything we are interested in
+
 ````
 
-This gives me a table with 82033 loci of interest and the genes they are associated with. This table can be filtered to removed regions that are probably not going to be important in this analysis such as intron variants or synonymous mutations. This filtering can be done with `grep` and the following line of code:
+This gives me a table with 31173 loci of interest and the genes they are associated with. This table can be filtered to removed regions that are probably not going to be important in this analysis such as intron variants or synonymous mutations. This filtering can be done with `grep` and the following line of code:
+
 ````
 grep -v 'intron_variant'  loci.ann.table |grep -v 'synonymous_variant' | grep -v 'intergenic_region' > loci.filter.ann.table
 
@@ -938,10 +975,13 @@ This filtering narrows down my table to 7322 loci of interest. I can also furthe
 ````
 grep 'HIGH'  loci.ann.table > high.loci.table
 ````
-This code extract only loci that have a high effect in the gene they are located in. This includes loci that add stop codons, change splie sites, or are non-synonymous inside exons. This code narrows down my list to 43 high impact loci of interest. This is a short enough list that I can search for gene names on flybase to see which pathways these genes are in. Many of the genes included are involved in metabolic pathways and cell growth or differentiation. This is an encouraging sign, but getting the GO terms would be a better comparison to Turner et al. (2011).
+This code extract only loci that have a high effect in the gene they are located in. This includes loci that add stop codons, change splice sites, or are non-synonymous inside exons. This code narrows down my list to 43 high impact loci of interest. This is a short enough list that I can search for gene names on flybase to see which pathways these genes are in. Many of the genes included are involved in metabolic pathways and cell growth or differentiation. This is an encouraging sign, but getting the GO terms would be a better comparison to Turner et al. (2011).
 
 ### Searching for GO enrichment ###
 
+Finally, I'm going to use topGO to find enriched GO terms in the filtered and annotated table. I'm going to use the full filtered set of 7322 loci.
+
+````
 rm(list=ls())
 
 library(org.Dm.eg.db)
@@ -949,10 +989,16 @@ library(TxDb.Dmelanogaster.UCSC.dm6.ensGene)
 library(topGO)
 library(Rgraphviz) 
 
-
+#Read in the genes for D. melanogaster
 allgenes <- data.frame(GenomicFeatures::genes(TxDb.Dmelanogaster.UCSC.dm6.ensGene))
+
+#Read in the gene 2 GO designator if it's been made already
 gene_GO <- readMappings("fly_to_GO.delim")
+
+#Read in a table with all my interesting genes
 mygenes<-read.table("gene_list.table")
+
+#Just keep the actual gene designators
 mygenes<-mygenes$V1
 mygenes
 allgenes$peak <- as.numeric(allgenes$gene_id %in% mygenes)
@@ -972,6 +1018,7 @@ gene_filter <- function(allScore){
   return(allScore == 1)
 }
 
+#Creating the topGO results table
 allgenes <- new("topGOdata",
                 ontology = "BP", 
                 allGenes = test,
@@ -985,18 +1032,22 @@ resultFisher <- runTest(allgenes, algorithm = "classic", statistic = "fisher")
 allRes20_3sd <- GenTable(allgenes, classic = resultFisher, ranksOf = "classic", topNodes = 20)
 allRes20_3sd
 
+#Writing the enriched terms to a csv
 write.csv(allRes20_3sd, file = "~/Desktop/GOtop20_3sd.csv")
 
+#reading the csv back in because it's easier to work with
 stuff<-read.csv("~/Desktop/GOtop20_3sd.csv")
 stuff
 
+#selecting only the columns I want to graph
 gos<-select(stuff,c("Term","Significant"))
 gos
 
+#ordering the elemts in the dataframe I'm graphing
 gos <- transform(gos,Term = reorder(Term,Significant))
 
+#Make the plot
 c <- ggplot(gos,aes(x=Term,y=Significant))
-
 c + geom_bar(stat="identity") + coord_flip() + scale_y_continuous('') + scale_x_discrete('')
 
 722go.png![image](https://user-images.githubusercontent.com/77504755/116240145-81550180-a731-11eb-9094-14974406905d.png)
