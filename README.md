@@ -1004,19 +1004,17 @@ mygenes
 allgenes$peak <- as.numeric(allgenes$gene_id %in% mygenes)
 allgenes$peak
 
-#topGO wants the gene names as rownames
+#topGO wants the gene names as rownames and as factors
 test <- data.frame(allgenes$peak)
 rownames(test) <- allgenes$gene_id
-
 test <- as.factor(allgenes$peak)
 names(test) <- allgenes$gene_id
-
 interesting <- as.factor(rep(1, length(mygenes)))
 names(interesting) <- mygenes
-
 gene_filter <- function(allScore){
   return(allScore == 1)
 }
+
 
 #Creating the topGO results table
 allgenes <- new("topGOdata",
@@ -1026,9 +1024,10 @@ allgenes <- new("topGOdata",
                 gene2GO = gene_GO
 )
 
-
+# Calculates Fisher statistics for GO terms
 resultFisher <- runTest(allgenes, algorithm = "classic", statistic = "fisher")
 
+# Creates a results table for the top 20 GO terms
 allRes20_3sd <- GenTable(allgenes, classic = resultFisher, ranksOf = "classic", topNodes = 20)
 allRes20_3sd
 
