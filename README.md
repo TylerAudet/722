@@ -1017,6 +1017,50 @@ termStat(allgenes, "GO:0007552") #Metamorphosis
 It does not appear that either of these terms were enriched significantly more tha expected. This is an interesting result because I'm finding different results from what Turner et al. (2011) found.
 
 
+DISCUSSION AND FUTURE DIRECTIONS
+
+	The population I chose to focus on was a different lineage than Turner et al. (2011) however it is the same experiment selecting on body size. For this reason, I expected to find somewhat different results, but the major finding of structure and ontology I expected to be the same. For the population structure measured with Fst I found that there is a very large number of genes in my experimental population that have gone to fixation and that appear to be under selection according to the CMH test statistic. Turner et al. (2011) also found a very large number of genes being under selection after 100 generations. It makes sense that I’m finding so many fixing in the population because they are now at 378 generations of selection.
+	
+	For enriched gene ontology (GO) terms, Turner et al. (2011) found significant enrichment in post-embryonic development and metamorphosis. These two GO terms were not significant in my analysis. Although a number of developmental GO terms were significant in my search including system development and cellular developmental processes. It seems that there are still developmental systems under selection, it may just not be the same ones found by Turner et al. (2011). This may be because of the nature of the artificial selection, Turner et al. (2011) looked at sex-concordant size selection, and I looked at sex-discordant size selection. There may be a reason post-embryonic development is not enriched when you select for sex-discordant size. This will require more investigation.
+	
+	For my next steps I need to look at the other selection lineages from the Stewart & Rice (2018) experiment. I plan on comparing the large selection lines to the small selection lines to see if they match the results obtained by Turner et al. (2011). These are the same lineages that Turner et al. (2011) initially investigated, so I expect to see more similar results, I chose the other lineage for tis pipeline because it was a new lineage that had not been looked at yet. I also plan on looking at males vs. females with this pipeline to see if there is evidence of sexual conflict in the sex-discordant lineage that may be influencing how the genome is reacting to selection on body size. Finally, I also need to verify my results with other programs and look closer at the 43 high impact SNPs that my CMH test picked out. These SNPs may be of interest in the future for knock-down experiments to see how much of an impact they have on body size. 
+
+REFERENCES
+
+Andrews, S. (2010). FastQC:  A Quality Control Tool for High Throughput Sequence Data [Online]. Available online at: http://www.bioinformatics.babraham.ac.uk/projects/fastqc/
+
+Bushnell, B., Rood, J., & Singer, E. (2017). BBMerge–Accurate paired shotgun read merging via overlap. PloS one, 12(10), e0185056.
+Fairbairn, D. J., & Roff, D. A. (2006). The quantitative genetics of sexual dimorphism: assessing the importance of sex-linkage. Heredity, 97(5), 319-328.
+
+Cingolani P, Platts A, Wang le L, Coon M, Nguyen T, Wang L, Land SJ, Lu X, Ruden DM. Fly (Austin). 2012 A program for annotating and predicting the effects of single nucleotide polymorphisms, SnpEff: SNPs in the genome of Drosophila melanogaster strain w1118; iso-2; iso-3.", Apr-Jun;6(2):80-92. PMID: 22728672
+
+Petr Danecek, Adam Auton, Goncalo Abecasis, Cornelis A. Albers, Eric Banks, Mark A. DePristo, Robert Handsaker, Gerton Lunter, Gabor Marth, Stephen T. Sherry, Gilean McVean, Richard Durbin and 1000 Genomes Project Analysis Group, (2011) The Variant Call Format and VCFtools, Bioinformatics, 
+
+Koboldt, D. C., Zhang, Q., Larson, D. E., Shen, D., McLellan, M. D., Lin, L., ... & Wilson, R. K. (2012). VarScan 2: somatic mutation and copy number alteration discovery in cancer by exome sequencing. Genome research, 22(3), 568-576.
+
+Kofler,R.,Vinay Pandey, R. & Schloetterer, C PoPoolation2: Identifying differentiation between populations using sequencing of pooled DNA samples (Pool-Seq); Bioinformatics; Vol. 27 no. 24 2011, pages 3435–3436; http://bioinformatics.oxfordjournals.org/content/27/24/3435
+
+Li, H., Handsaker, B., Wysoker, A., Fennell, T., Ruan, J., Homer, N., ... & Durbin, R. (2009). The sequence alignment/map format and SAMtools. Bioinformatics, 25(16), 2078-2079.
+
+Li H. (2013) Aligning sequence reads, clone sequences and assembly contigs with BWA-MEM. arXiv:1303.3997v1 [q-bio.GN].
+
+Picard Team (2021) http://broadinstitute.github.io/picard/
+
+R Core Team (2020). R: A language and environment for statistical
+##   computing. R Foundation for Statistical Computing, Vienna, Austria.
+##   URL https://www.R-project.org/.
+
+Reeve, J. P. & Fairbairn, D. J. (1996). Sexual size dimorphism as a correlated response to selection on body size: an empirical test of the quantitative genetic model. Evolution 50, 1927–1938 
+
+Spitzer K, Pelizzola M, Futschik A, (2020). Modifying the Chi-square and the CMH test for population genetic inference: adapting to over-dispersion, https://projecteuclid.org/euclid.aoas/1587002671
+
+Taus T, Futschik A and Schlötterer C. 2017. Quantifying selection with pool-Seq data. Mol. Bio. Evol. 34:3023-3034.
+
+Tigreros, N., & Lewis, S. M. (2011). Direct and correlated responses to artificial selection on sexual size dimorphism in the flour beetle, Tribolium castaneum. Journal of evolutionary biology, 24(4), 835-842.
+
+Van der Auwera GA & O'Connor BD. (2020). Genomics in the Cloud: Using Docker, GATK, and WDL in Terra (1st Edition). O'Reilly Media.
+
+![image](https://user-images.githubusercontent.com/77504755/116255777-908f7b80-a740-11eb-9112-c87949b8fb74.png)
 
 
 
