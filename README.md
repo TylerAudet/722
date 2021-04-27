@@ -916,7 +916,7 @@ vcftools --vcf Sexes_combined_norepeat.vcf --out interesting_loci.vcf --position
 #--positions tells vcftools what the file with my locations of interest is
 ````
 
-After filtering, vcftools kept 31173 out of a possible 617602 Sites. This means that 31173 out of the 31317 SNPs found by the CMH test are also in the varscan output. I can then turn these intersting loci in to a table from the vcf because it will be easier to format and work with.
+After filtering, vcftools kept 82033 out of a possible 617602 Sites. This means that 31173 out of the 31317 SNPs found by the CMH test are also in the varscan output. I can then turn these intersting loci in to a table from the vcf because it will be easier to format and work with.
 
 ````
 java -Xmx32g -jar /usr/local/gatk/GenomeAnalysisTK.jar -R /2/scratch/TylerA/Dmelgenome/gatk/dmel-all-chromosome-r6.23.fasta -V interesting_loci.vcf.recode.vcf -T VariantsToTable -F CHROM -F POS -F TYPE -F REF -F ALT -o interesting_loci.table
@@ -925,6 +925,77 @@ Next I can annotate the genomic loci in this table with SNPEff
 
 ````
 java -Xmx8g -jar ~/bin/snpEff/snpEff.jar -ud 0 Drosophila_melanogaster interesting_loci.table > loci.ann.table
+````
+
+This gives me a table with 82033 loci of interest and the genes they are associated with. This table can be filtered to removed regions that are probably not going to be important in this analysis such as intron variants or synonymous mutations. This filtering can be done with `grep` and the following line of code:
+````
+grep -v 'intron_variant'  loci.ann.table |grep -v 'synonymous_variant' | grep -v 'intergenic_region' > loci.filter.ann.table
+
+# -v tells grep to pul out line that do not math the criteria given, so it removes the matches.
+````
+This filtering narrows down my table to 7322 loci of interest. I can also further arrow it down to a more manageable size using:
+````
+grep 'HIGH'  loci.ann.table > high.loci.table
+````
+This code extract only loci that have a high effect in the gene they are located in. This includes loci that add stop codons, change splie sites, or are non-synonymous inside exons. This code narrows down my list to 43 high impact loci of interest. This is a short enough list that I can search for gene names on flybase to see which pathways these genes are in. Many of the genes included are involved in metabolic pathways and cell growth or differentiation. This is an encouraging sign, but getting the GO terms would be a better comparison to Turner et al. (2011).
+
+### Searching for GO enrichment ###
+
+rm(list=ls())
+
+library(org.Dm.eg.db)
+library(TxDb.Dmelanogaster.UCSC.dm6.ensGene)
+library(topGO)
+library(Rgraphviz) 
+
+
+allgenes <- data.frame(GenomicFeatures::genes(TxDb.Dmelanogaster.UCSC.dm6.ensGene))
+gene_GO <- readMappings("fly_to_GO.delim")
+mygenes<-read.table("gene_list.table")
+mygenes<-mygenes$V1
+mygenes
+allgenes$peak <- as.numeric(allgenes$gene_id %in% mygenes)
+allgenes$peak
+
+#topGO wants the gene names as rownames
+test <- data.frame(allgenes$peak)
+rownames(test) <- allgenes$gene_id
+
+test <- as.factor(allgenes$peak)
+names(test) <- allgenes$gene_id
+
+interesting <- as.factor(rep(1, length(mygenes)))
+names(interesting) <- mygenes
+
+gene_filter <- function(allScore){
+  return(allScore == 1)
+}
+
+allgenes <- new("topGOdata",
+                ontology = "BP", 
+                allGenes = test,
+                annotationFun = annFUN.gene2GO, 
+                gene2GO = gene_GO
+)
+
+
+resultFisher <- runTest(allgenes, algorithm = "classic", statistic = "fisher")
+
+allRes20_3sd <- GenTable(allgenes, classic = resultFisher, ranksOf = "classic", topNodes = 20)
+allRes20_3sd
+
+write.csv(allRes20_3sd, file = "~/Desktop/GOtop20_3sd.csv")
+
+stuff<-read.csv("~/Desktop/GOtop20_3sd.csv")
+stuff
+
+gos<-select(stuff,c("Term","Significant"))
+gos
+
+gos <- transform(gos,Term = reorder(Term,Significant))
+c <- ggplot(gos,aes(x=Term,y=Significant))
+c + geom_bar(stat="identity") + coord_flip() + scale_y_continuous('') + scale_x_discrete('')
+
 ````
 
 
